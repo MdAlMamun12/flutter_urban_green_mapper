@@ -1800,7 +1800,6 @@ class UserManagementScreen extends StatelessWidget {
   }
 
   Widget _buildUsersList(BuildContext context, AdminDashboardProvider dashboardProvider) {
-    // In a real app, you would fetch and display actual users
     return Card(
       elevation: 4,
       child: Padding(
@@ -1808,63 +1807,101 @@ class UserManagementScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Recent Users',
-              style: AppTheme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Recent Users',
+                    style: AppTheme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) async {
+                    try {
+                      final path = await dashboardProvider.exportUsers(format: value);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Exported to: $path')));
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'pdf', child: Text('Export PDF')),
+                    PopupMenuItem(value: 'csv', child: Text('Export CSV')),
+                    PopupMenuItem(value: 'json', child: Text('Export JSON')),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: const [Icon(Icons.download, size: 16), SizedBox(width: 8), Text('Export')],
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            ...List.generate(5, (index) => _buildUserListItem(context, index)),
+            if (dashboardProvider.isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (dashboardProvider.allUsers.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
+                      const SizedBox(height: 12),
+                      const Text('No users found', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Column(
+                children: dashboardProvider.allUsers.map((u) => _buildUserListItem(context, u)).toList(),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildUserListItem(BuildContext context, int index) {
-    final users = [
-      {'name': 'John Doe', 'email': 'john@example.com', 'role': 'user', 'status': 'active'},
-      {'name': 'Green NGO', 'email': 'contact@green-ngo.org', 'role': 'ngo', 'status': 'verified'},
-      {'name': 'Jane Smith', 'email': 'jane@example.com', 'role': 'user', 'status': 'active'},
-      {'name': 'Eco Warriors', 'email': 'info@ecowarriors.org', 'role': 'ngo', 'status': 'pending'},
-      {'name': 'Mike Johnson', 'email': 'mike@example.com', 'role': 'user', 'status': 'suspended'},
-    ];
-
-    final user = users[index];
+  Widget _buildUserListItem(BuildContext context, UserModel user) {
     Color statusColor = Colors.green;
     IconData statusIcon = Icons.check_circle;
 
-    switch (user['status']) {
-      case 'pending':
-        statusColor = Colors.orange;
-        statusIcon = Icons.pending;
-        break;
-      case 'suspended':
-        statusColor = Colors.red;
-        statusIcon = Icons.block;
-        break;
+    if (user.isSuspended) {
+      statusColor = Colors.red;
+      statusIcon = Icons.block;
+    } else if (user.isPendingVerification) {
+      statusColor = Colors.orange;
+      statusIcon = Icons.pending;
     }
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.grey[300],
-        child: Text(user['name']![0]),
-      ),
-      title: Text(user['name']!),
-      subtitle: Text('${user['email']} • ${user['role']}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(statusIcon, color: statusColor, size: 16),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.more_vert, size: 16),
-            onPressed: () {
-              _showUserActions(context, user);
-            },
-          ),
-        ],
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.grey[200],
+          child: Text(user.initials),
+        ),
+        title: Text(user.name.isNotEmpty ? user.name : user.displayName),
+        subtitle: Text('${user.email} • ${user.role} • ${user.accountStatus}'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(statusIcon, color: statusColor, size: 16),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.more_vert, size: 18),
+              onPressed: () => _showUserActions(context, user),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2287,11 +2324,11 @@ class UserManagementScreen extends StatelessWidget {
     );
   }
 
-  void _showUserActions(BuildContext context, Map<String, String> user) {
+  void _showUserActions(BuildContext context, UserModel user) {
     showModalBottomSheet(
       context: context,
       builder: (context) => SizedBox(
-        height: 300,
+        height: 320,
         child: Column(
           children: [
             ListTile(
@@ -2299,11 +2336,7 @@ class UserManagementScreen extends StatelessWidget {
               title: const Text('View Profile'),
               onTap: () {
                 Navigator.pop(context);
-                _showUserDetails(context, UserModel.fromMap({
-                  'name': user['name'],
-                  'email': user['email'],
-                  'role': user['role'],
-                }));
+                _showUserDetails(context, user);
               },
             ),
             ListTile(
@@ -2311,30 +2344,58 @@ class UserManagementScreen extends StatelessWidget {
               title: const Text('Edit User'),
               onTap: () {
                 Navigator.pop(context);
-                // Handle edit user
+                _showEditUserDialog(context, user);
               },
             ),
-            if (user['status'] == 'active')
+            if (!user.isSuspended)
               ListTile(
                 leading: const Icon(Icons.block, color: Colors.red),
                 title: const Text('Suspend User'),
                 onTap: () {
                   Navigator.pop(context);
-                  _showSuspendUserDialog(context, 'user_id');
+                  _showSuspendUserDialog(context, user.userId);
                 },
               ),
-            if (user['status'] == 'suspended')
+            if (user.isSuspended)
               ListTile(
                 leading: const Icon(Icons.check, color: Colors.green),
                 title: const Text('Unsuspend User'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  Provider.of<AdminDashboardProvider>(context, listen: false).unsuspendUser('user_id');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('User unsuspended successfully')),
-                  );
+                  try {
+                    await Provider.of<AdminDashboardProvider>(context, listen: false).unsuspendUser(user.userId);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User unsuspended successfully')));
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete User'),
+              onTap: () async {
+                Navigator.pop(context);
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: const Text('Delete User'),
+                    content: const Text('Are you sure you want to permanently delete this user? This action cannot be undone.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                      ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Delete')),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  try {
+                    await Provider.of<AdminDashboardProvider>(context, listen: false).deleteUser(user.userId);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User deleted')));
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                }
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.email),
               title: const Text('Send Message'),
@@ -2345,6 +2406,62 @@ class UserManagementScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditUserDialog(BuildContext context, UserModel user) {
+    final nameController = TextEditingController(text: user.name);
+    final emailController = TextEditingController(text: user.email);
+    String selectedRole = user.role;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit User'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+              const SizedBox(height: 8),
+              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                items: ['citizen', 'ngo', 'sponsor', 'admin'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
+                onChanged: (v) { if (v != null) selectedRole = v; },
+                decoration: const InputDecoration(labelText: 'Role'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final email = emailController.text.trim();
+              if (name.isEmpty || email.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name and email cannot be empty')));
+                return;
+              }
+              Navigator.pop(context);
+              try {
+                await Provider.of<AdminDashboardProvider>(context, listen: false).updateUser(user.userId, {
+                  'name': name,
+                  'email': email,
+                  'role': selectedRole,
+                  'updated_at': DateTime.now().toIso8601String(),
+                });
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User updated successfully')));
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:developer' as developer;
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pdf/pdf.dart';
@@ -16,35 +18,43 @@ class PdfExportService {
 
   Future<void> initialize() async {
     if (_isInitialized) return;
-
     try {
-      print('📁 Initializing PdfExportService...');
+      _log('📁 Initializing PdfExportService...');
       
       // Request permissions only for Android
       if (Platform.isAndroid) {
-        final storageStatus = await Permission.storage.status;
-        if (!storageStatus.isGranted) {
-          await Permission.storage.request();
+        try {
+          final storageStatus = await Permission.storage.status;
+          if (!storageStatus.isGranted) {
+            await Permission.storage.request();
+          }
+        } catch (e) {
+          // Permission plugin may not be available in some environments (tests/desktop).
+          _log('⚠️ Permission check/request failed: $e', level: 800);
         }
+        // On Android 11+ consider requesting manage external storage if needed (optional)
+        // if (await Permission.manageExternalStorage.isDenied) {
+        //   await Permission.manageExternalStorage.request();
+        // }
       }
 
       // Get export directory with multiple fallbacks
-      _exportDirectory = await _getSafeDirectory();
+  _exportDirectory = await _getSafeDirectory();
       
       // Create exports subdirectory
       final exportsDir = Directory('${_exportDirectory!.path}/exports');
       if (!await exportsDir.exists()) {
         await exportsDir.create(recursive: true);
-        print('✅ Created exports directory: ${exportsDir.path}');
+        _log('✅ Created exports directory: ${exportsDir.path}');
       }
       
       _exportDirectory = exportsDir;
       _isInitialized = true;
       
-      print('✅ PdfExportService initialized successfully');
-      print('📁 Export directory: ${_exportDirectory!.path}');
+      _log('✅ PdfExportService initialized successfully');
+      _log('📁 Export directory: ${_exportDirectory!.path}');
     } catch (e) {
-      print('❌ PdfExportService initialization failed: $e');
+      _log('❌ PdfExportService initialization failed: $e', level: 1000);
       await _initializeEmergencyDirectory();
     }
   }
@@ -55,24 +65,33 @@ class PdfExportService {
       () async {
         try {
           return await getApplicationDocumentsDirectory();
+        } on MissingPluginException catch (e) {
+          _log('❌ getApplicationDocumentsDirectory MissingPluginException: $e', level: 1000);
+          rethrow;
         } catch (e) {
-          print('❌ getApplicationDocumentsDirectory failed: $e');
+          _log('❌ getApplicationDocumentsDirectory failed: $e', level: 1000);
           rethrow;
         }
       },
       () async {
         try {
           return await getTemporaryDirectory();
+        } on MissingPluginException catch (e) {
+          _log('❌ getTemporaryDirectory MissingPluginException: $e', level: 1000);
+          rethrow;
         } catch (e) {
-          print('❌ getTemporaryDirectory failed: $e');
+          _log('❌ getTemporaryDirectory failed: $e', level: 1000);
           rethrow;
         }
       },
       () async {
         try {
           return await getLibraryDirectory();
+        } on MissingPluginException catch (e) {
+          _log('❌ getLibraryDirectory MissingPluginException: $e', level: 1000);
+          rethrow;
         } catch (e) {
-          print('❌ getLibraryDirectory failed: $e');
+          _log('❌ getLibraryDirectory failed: $e', level: 1000);
           rethrow;
         }
       },
@@ -81,16 +100,16 @@ class PdfExportService {
     for (var source in directorySources) {
       try {
         final directory = await source();
-        print('✅ Using directory: ${directory.path}');
+        _log('✅ Using directory: ${directory.path}');
         return directory;
       } catch (e) {
-        print('⚠️ Directory source failed, trying next...');
+        _log('⚠️ Directory source failed, trying next...: $e', level: 800);
         continue;
       }
     }
 
     // If all platform-specific directories fail, use a custom directory
-    print('🚨 All platform directories failed, using custom directory');
+    _log('🚨 All platform directories failed, using custom directory', level: 900);
     return Directory('${Directory.current.path}/urban_green_exports');
   }
 
@@ -101,13 +120,13 @@ class PdfExportService {
         await _exportDirectory!.create(recursive: true);
       }
       _isInitialized = true;
-      print('🚨 Using emergency directory: ${_exportDirectory!.path}');
+      _log('🚨 Using emergency directory: ${_exportDirectory!.path}', level: 900);
     } catch (e) {
-      print('❌ Emergency directory setup failed: $e');
+      _log('❌ Emergency directory setup failed: $e', level: 1000);
       // Last resort - use temporary system directory
       _exportDirectory = Directory.systemTemp;
       _isInitialized = true;
-      print('💀 Using system temp directory: ${_exportDirectory!.path}');
+      _log('💀 Using system temp directory: ${_exportDirectory!.path}', level: 900);
     }
   }
 
@@ -115,11 +134,17 @@ class PdfExportService {
     if (!_isInitialized) {
       await initialize();
     }
-    
+
+    if (_exportDirectory == null) {
+      // Ensure we have at least system temp as a fallback
+      _exportDirectory = Directory.systemTemp;
+      _isInitialized = true;
+    }
+
     if (!await _exportDirectory!.exists()) {
       await _exportDirectory!.create(recursive: true);
     }
-    
+
     return _exportDirectory!.path;
   }
 
@@ -130,94 +155,115 @@ class PdfExportService {
     required String title,
     String? subtitle,
   }) async {
-    try {
-      if (!_isInitialized) await initialize();
-      
-      final exportDir = await _ensureDirectoryExists();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final safeFileName = _sanitizeFileName(fileName);
-      final filePath = '$exportDir/${safeFileName}_$timestamp.pdf';
+    // Build PDF document first so we can always write it to any directory (including system temp)
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final safeFileName = _sanitizeFileName(fileName);
+    final pdf = pw.Document();
 
-      print('📄 Creating PDF: $filePath');
-      
-      final pdf = pw.Document();
-
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Center(
-                  child: pw.Text(
-                    title,
-                    style: pw.TextStyle(
-                      fontSize: 24,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Center(
+                child: pw.Text(
+                  title,
+                  style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                
-                if (subtitle != null) ...[
-                  pw.SizedBox(height: 10),
-                  pw.Center(
-                    child: pw.Text(
-                      subtitle,
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        color: PdfColors.grey700,
-                      ),
-                    ),
-                  ),
-                ],
-                
-                pw.SizedBox(height: 20),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'Exported on: ${_formatDate(DateTime.now())}',
-                      style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
-                    ),
-                    pw.Text(
-                      'Total Records: ${data.length}',
-                      style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
-                    ),
-                  ],
-                ),
-                
-                pw.SizedBox(height: 20),
-                data.isEmpty ? _buildNoDataMessage() : _buildPdfTable(data),
-                
-                pw.SizedBox(height: 30),
-                pw.Divider(),
+              ),
+
+              if (subtitle != null) ...[
+                pw.SizedBox(height: 10),
                 pw.Center(
                   child: pw.Text(
-                    'Generated by Urban Green Mapper App',
+                    subtitle,
                     style: pw.TextStyle(
-                      fontSize: 10,
-                      color: PdfColors.grey500,
-                      fontStyle: pw.FontStyle.italic,
+                      fontSize: 14,
+                      color: PdfColors.grey700,
                     ),
                   ),
                 ),
               ],
-            );
-          },
-        ),
-      );
+
+              pw.SizedBox(height: 20),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Exported on: ${_formatDate(DateTime.now())}',
+                    style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+                  ),
+                  pw.Text(
+                    'Total Records: ${data.length}',
+                    style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+                  ),
+                ],
+              ),
+
+              pw.SizedBox(height: 20),
+              data.isEmpty ? _buildNoDataMessage() : _buildPdfTable(data),
+
+              pw.SizedBox(height: 30),
+              pw.Divider(),
+              pw.Center(
+                child: pw.Text(
+                  'Generated by Urban Green Mapper App',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    color: PdfColors.grey500,
+                    fontStyle: pw.FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    try {
+      if (!_isInitialized) await initialize();
+
+      final exportDir = await _ensureDirectoryExists();
+      final filePath = '$exportDir/${safeFileName}_$timestamp.pdf';
+
+      _log('📄 Creating PDF: $filePath');
 
       final file = File(filePath);
       final pdfBytes = await pdf.save();
       await file.writeAsBytes(pdfBytes, flush: true);
 
-      print('✅ PDF exported successfully: $filePath');
-      print('📊 File size: ${pdfBytes.length} bytes');
+      _log('✅ PDF exported successfully: $filePath');
+      _log('📊 File size: ${pdfBytes.length} bytes');
       return filePath;
+    } on MissingPluginException catch (e) {
+      _log('❌ PDF export failed due to MissingPluginException: $e', level: 1000);
+      // Fallback: save into system temp directory which doesn't rely on path_provider
+      final pdfBytes = await pdf.save();
+      final tempDir = Directory.systemTemp;
+      final fallbackFile = File('${tempDir.path}/${safeFileName}_$timestamp.pdf');
+      await fallbackFile.writeAsBytes(pdfBytes, flush: true);
+      _log('✅ Fallback PDF saved to system temp: ${fallbackFile.path}');
+      return fallbackFile.path;
     } catch (e) {
-      print('❌ PDF export failed: $e');
-      throw Exception('PDF export failed: $e');
+      _log('❌ PDF export failed: $e', level: 1000);
+      // Generic fallback
+      try {
+        final pdfBytes = await pdf.save();
+        final tempDir = Directory.systemTemp;
+        final fallbackFile = File('${tempDir.path}/${safeFileName}_$timestamp.pdf');
+        await fallbackFile.writeAsBytes(pdfBytes, flush: true);
+        _log('✅ Fallback PDF saved to system temp: ${fallbackFile.path}');
+        return fallbackFile.path;
+      } catch (inner) {
+        _log('❌ Fallback PDF save failed: $inner', level: 1000);
+        throw Exception('PDF export failed: $e');
+      }
     }
   }
 
@@ -234,7 +280,7 @@ class PdfExportService {
       final safeFileName = _sanitizeFileName(fileName);
       final filePath = '$exportDir/${safeFileName}_$timestamp.json';
 
-      print('📊 Creating JSON: $filePath');
+      _log('📊 Creating JSON: $filePath');
 
       final jsonData = {
         'exportedAt': DateTime.now().toIso8601String(),
@@ -246,10 +292,10 @@ class PdfExportService {
       final jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
       await file.writeAsString(jsonString, flush: true);
 
-      print('✅ JSON exported successfully: $filePath');
+      _log('✅ JSON exported successfully: $filePath');
       return filePath;
     } catch (e) {
-      print('❌ JSON export failed: $e');
+      _log('❌ JSON export failed: $e', level: 1000);
       throw Exception('JSON export failed: $e');
     }
   }
@@ -267,7 +313,7 @@ class PdfExportService {
       final safeFileName = _sanitizeFileName(fileName);
       final filePath = '$exportDir/${safeFileName}_$timestamp.csv';
 
-      print('📋 Creating CSV: $filePath');
+      _log('📋 Creating CSV: $filePath');
 
       if (data.isEmpty) {
         throw Exception('No data to export');
@@ -287,10 +333,10 @@ class PdfExportService {
       final csvString = csvBuffer.toString();
       await file.writeAsString(csvString, flush: true);
 
-      print('✅ CSV exported successfully: $filePath');
+      _log('✅ CSV exported successfully: $filePath');
       return filePath;
     } catch (e) {
-      print('❌ CSV export failed: $e');
+      _log('❌ CSV export failed: $e', level: 1000);
       throw Exception('CSV export failed: $e');
     }
   }
@@ -385,13 +431,54 @@ class PdfExportService {
         await Printing.layoutPdf(
           onLayout: (PdfPageFormat format) => pdfData,
         );
-        print('🖨️ PDF printed successfully');
+        _log('🖨️ PDF printed successfully');
       } else {
         throw Exception('File not found: $filePath');
       }
     } catch (e) {
-      print('❌ PDF printing failed: $e');
+      _log('❌ PDF printing failed: $e', level: 1000);
       throw Exception('PDF printing failed: $e');
+    }
+  }
+
+  /// Create a PDF and immediately open the system share/preview dialog (uses `printing` package)
+  Future<void> exportAndSharePDF({
+    required List<Map<String, dynamic>> data,
+    required String fileName,
+    required String title,
+    String? subtitle,
+  }) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          header: (pw.Context ctx) {
+            return pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(title, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Text('Records: ${data.length}', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+              ],
+            );
+          },
+          build: (pw.Context ctx) => [
+            data.isEmpty ? _buildNoDataMessage() : _buildPdfTable(data),
+          ],
+        ),
+      );
+
+      final bytes = await pdf.save();
+
+      // Share/preview using printing package
+      await Printing.sharePdf(bytes: bytes, filename: '${_sanitizeFileName(fileName)}.pdf');
+    } catch (e) {
+      _log('❌ exportAndSharePDF failed: $e', level: 1000);
+      rethrow;
     }
   }
 
@@ -401,6 +488,7 @@ class PdfExportService {
       final file = File(filePath);
       return await file.exists();
     } catch (e) {
+      _log('⚠️ fileExists check failed: $e', level: 800);
       return false;
     }
   }
@@ -414,10 +502,15 @@ class PdfExportService {
       }
       return [];
     } catch (e) {
-      print('❌ Error getting exported files: $e');
+      _log('❌ Error getting exported files: $e', level: 1000);
       return [];
     }
   }
 
   bool get isInitialized => _isInitialized;
+
+  // Internal logger wrapper - uses dart:developer to avoid analyzer lint for `print`.
+  void _log(String message, {int level = 0}) {
+    developer.log(message, name: 'PdfExportService', level: level);
+  }
 }

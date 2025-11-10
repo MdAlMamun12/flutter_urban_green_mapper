@@ -4,6 +4,7 @@ import 'package:urban_green_mapper/core/constants/firestore_constants.dart';
 import 'package:urban_green_mapper/core/models/user_model.dart';
 import 'package:urban_green_mapper/core/models/event_model.dart';
 import 'package:urban_green_mapper/core/models/report_model.dart';
+import 'package:urban_green_mapper/core/services/pdf_export_service.dart';
 
 class AdminDashboardProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -41,6 +42,9 @@ class AdminDashboardProvider with ChangeNotifier {
   List<UserModel> _reportedUsersList = [];
   List<ReportModel> _flaggedReports = [];
   List<ReportModel> _spamReports = [];
+  
+  // Full users list for management
+  List<UserModel> _allUsers = [];
   
   // Analytics data
   Map<String, dynamic> _userAnalytics = {};
@@ -89,6 +93,7 @@ class AdminDashboardProvider with ChangeNotifier {
   Map<String, dynamic> get userAnalytics => _userAnalytics;
   Map<String, dynamic> get platformAnalytics => _platformAnalytics;
   Map<String, dynamic> get systemMetrics => _systemMetrics;
+  List<UserModel> get allUsers => _allUsers;
   Map<String, dynamic> get securitySettings => _securitySettings;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -108,6 +113,7 @@ class AdminDashboardProvider with ChangeNotifier {
         _loadRecentActivity(),
         _loadModerationQueues(),
         _loadPlantStatistics(),
+        _loadAllUsers(),
         _loadUserAnalytics(),
         _loadPlatformAnalytics(),
         _loadSystemMetrics(),
@@ -421,6 +427,89 @@ class AdminDashboardProvider with ChangeNotifier {
 
     } catch (e) {
       throw Exception('Failed to load moderation queues: $e');
+    }
+  }
+
+  /// Load all users for management
+  Future<void> _loadAllUsers() async {
+    try {
+      final snapshot = await _firestore.collection(FirestoreConstants.usersCollection).get();
+      _allUsers = snapshot.docs.map((d) {
+        final data = d.data();
+        // Ensure user_id exists for parsing
+        final map = Map<String, dynamic>.from(data);
+        map['user_id'] = map['user_id'] ?? d.id;
+        return UserModel.fromMap(map);
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to load all users: $e');
+    }
+  }
+
+  /// Update a user document and refresh local cache
+  Future<void> updateUser(String userId, Map<String, dynamic> updates) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      await _firestore.collection(FirestoreConstants.usersCollection).doc(userId).update(updates);
+
+      // Refresh local user entry
+      final doc = await _firestore.collection(FirestoreConstants.usersCollection).doc(userId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['user_id'] = data['user_id'] ?? doc.id;
+        final updatedUser = UserModel.fromMap(data);
+        final idx = _allUsers.indexWhere((u) => u.userId == userId);
+        if (idx != -1) {
+          _allUsers[idx] = updatedUser;
+        } else {
+          _allUsers.insert(0, updatedUser);
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to update user: $e';
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Delete a user and update local caches
+  Future<void> deleteUser(String userId) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      await _firestore.collection(FirestoreConstants.usersCollection).doc(userId).delete();
+
+      _allUsers.removeWhere((u) => u.userId == userId);
+      _pendingVerificationUsers.removeWhere((u) => u.userId == userId);
+      _reportedUsersList.removeWhere((u) => u.userId == userId);
+
+      // Add to activity log
+      _recentActivity.insert(0, {
+        'type': 'user_deleted',
+        'description': 'User deleted: $userId',
+        'timestamp': DateTime.now(),
+        'formatted_time': _formatTimestamp(DateTime.now()),
+        'user_id': userId,
+      });
+
+      if (_recentActivity.length > 15) _recentActivity.removeLast();
+
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to delete user: $e';
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -1072,6 +1161,49 @@ class AdminDashboardProvider with ChangeNotifier {
 
     } catch (e) {
       _error = 'Failed to export data: $e';
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Export users list to file (pdf/csv/json) using PdfExportService
+  /// Returns the generated file path for pdf/csv/json, or throws on error.
+  Future<String> exportUsers({String format = 'pdf'}) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      final usersSnapshot = await _firestore.collection('users').get();
+      final List<Map<String, dynamic>> rows = usersSnapshot.docs.map((doc) {
+        final d = doc.data();
+        return {
+          'user_id': d['user_id'] ?? doc.id,
+          'name': d['name'] ?? '',
+          'email': d['email'] ?? '',
+          'role': d['role'] ?? '',
+          'created_at': d['created_at'] ?? '',
+          'is_active': d['is_active'] ?? true,
+        };
+      }).toList();
+
+      final exporter = PdfExportService();
+      final fileName = 'users_export_${DateTime.now().toIso8601String()}';
+
+      if (format == 'csv') {
+        final path = await exporter.exportToCSV(data: rows, fileName: fileName);
+        return path;
+      } else if (format == 'json') {
+        final path = await exporter.exportToJSON(data: rows, fileName: fileName);
+        return path;
+      } else {
+        // default PDF
+        final path = await exporter.exportToPDF(data: rows, fileName: fileName, title: 'Users Export', subtitle: 'Total ${rows.length} users');
+        return path;
+      }
+    } catch (e) {
+      _error = 'Failed to export users: $e';
       rethrow;
     } finally {
       _isLoading = false;

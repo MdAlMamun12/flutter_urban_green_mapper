@@ -147,6 +147,65 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
               context.read<NGODashboardProvider>().refreshData();
             },
           ),
+          // Notifications quick access
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () => _showNotifications(),
+          ),
+          // User menu: profile, security, logout
+          PopupMenuButton<String>(
+            tooltip: 'Account',
+            onSelected: (value) {
+              switch (value) {
+                case 'profile':
+                  _showProfileEditor();
+                  break;
+                case 'notifications':
+                  _showNotifications();
+                  break;
+                case 'security':
+                  _showSecuritySettings();
+                  break;
+                case 'logout':
+                  _handleLogout();
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                PopupMenuItem<String>(
+                  value: 'profile',
+                  child: Row(children: [const Icon(Icons.person, size: 18), const SizedBox(width: 8), Expanded(child: Text('Profile'))]),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'notifications',
+                  child: Row(children: [Icon(Icons.notifications, size: 18), SizedBox(width: 8), Text('Notifications')]),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'security',
+                  child: Row(children: [Icon(Icons.lock, size: 18), SizedBox(width: 8), Text('Security')]),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'logout',
+                  child: Row(children: [Icon(Icons.logout, size: 18), SizedBox(width: 8), Text('Logout')]),
+                ),
+              ];
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: DashboardColors.safeGreen(700),
+                child: Text(
+                  Provider.of<AuthProvider>(context, listen: false).user?.name.trim().isNotEmpty == true
+                      ? Provider.of<AuthProvider>(context, listen: false).user!.name[0].toUpperCase()
+                      : 'U',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               _handleMenuSelection(value);
@@ -2435,5 +2494,220 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
         ],
       ),
     );
+  }
+
+  // --- Account / Notifications / Security UI ---
+  void _showNotifications() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final userId = auth.user?.userId;
+
+    if (userId == null || userId.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Notifications'),
+          content: const Text('Not signed in'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Notifications'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('notifications')
+                .where('user_id', isEqualTo: userId)
+                .orderBy('created_at', descending: true)
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+              }
+              if (!snap.hasData || snap.data!.docs.isEmpty) {
+                return const Padding(padding: EdgeInsets.all(8.0), child: Text('No notifications'));
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: snap.data!.docs.length,
+                itemBuilder: (context, index) {
+                  final doc = snap.data!.docs[index];
+                  final map = doc.data() as Map<String, dynamic>;
+                  final title = map['title'] ?? '';
+                  final message = map['message'] ?? '';
+                  final isRead = map['is_read'] ?? false;
+                  final ts = map['created_at'] as Timestamp?;
+                  final time = ts != null ? _formatDate(ts.toDate()) : '';
+
+                  return ListTile(
+                    leading: Icon(isRead ? Icons.mark_email_read : Icons.mark_email_unread, color: isRead ? Colors.green : Colors.orange),
+                    title: Text(title),
+                    subtitle: Text('$message\n$time'),
+                    isThreeLine: true,
+                    trailing: Wrap(
+                      spacing: 8,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete, size: 18),
+                          onPressed: () async {
+                            await FirebaseFirestore.instance.collection('notifications').doc(doc.id).delete();
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(isRead ? Icons.visibility_off : Icons.visibility, size: 18),
+                          onPressed: () async {
+                            await FirebaseFirestore.instance.collection('notifications').doc(doc.id).set({'is_read': !isRead}, SetOptions(merge: true));
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _showProfileEditor() {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
+    final nameController = TextEditingController(text: user?.name ?? '');
+  final photoController = TextEditingController(text: user?.profilePicture ?? '');
+    final emailController = TextEditingController(text: user?.email ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Profile'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Display name')),
+                TextField(controller: photoController, decoration: const InputDecoration(labelText: 'Photo URL')),
+                const SizedBox(height: 8),
+                TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email (requires reauth)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  final displayName = nameController.text.trim();
+                  final photo = photoController.text.trim();
+                  final newEmail = emailController.text.trim();
+
+                  await authProvider.updateUserProfile(displayName: displayName.isEmpty ? null : displayName, photoURL: photo.isEmpty ? null : photo);
+                  if (newEmail.isNotEmpty && newEmail != user?.email) {
+                    await authProvider.updateEmail(newEmail);
+                  }
+                  if (mounted) Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update profile: $e')));
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSecuritySettings() {
+  final newPasswordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Security'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: newPasswordController, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newPass = newPasswordController.text.trim();
+                    if (newPass.length < 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password must be at least 6 characters')));
+                      return;
+                    }
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final ok = await authProvider.updatePassword(newPass);
+                    if (ok) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated')));
+                      Navigator.pop(context);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update password')));
+                    }
+                  },
+                  child: const Text('Change Password'),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete account'),
+                        content: const Text('This will permanently delete your account and data. Are you sure?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.white))),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                      final ok = await authProvider.deleteAccount();
+                      if (ok) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account deleted')));
+                        if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete account')));
+                      }
+                    }
+                  },
+                  child: const Text('Delete Account'),
+                ),
+              ],
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        ),
+      ),
+    );
+  }
+
+  void _handleLogout() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final ok = await authProvider.logout();
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out')));
+      if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to logout')));
+    }
   }
 }
