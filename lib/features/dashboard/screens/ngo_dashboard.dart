@@ -11,6 +11,8 @@ import 'package:urban_green_mapper/features/dashboard/widgets/report_generator_s
 import 'package:urban_green_mapper/features/dashboard/widgets/sponsors_management_screen.dart';
 import 'package:urban_green_mapper/features/dashboard/widgets/volunteer_invitation_screen.dart';
 import 'package:urban_green_mapper/features/dashboard/widgets/analytics_dashboard.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:urban_green_mapper/core/services/database_service.dart';
 
 // Color utility class to handle nullable colors permanently
 class DashboardColors {
@@ -407,18 +409,75 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Dashboard Settings'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Dashboard customization settings would appear here.'),
-            SizedBox(height: 16),
-            Text('Features include:'),
-            Text('• Theme preferences'),
-            Text('• Notification settings'),
-            Text('• Data refresh intervals'),
-            Text('• Export preferences'),
-          ],
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            final ngoId = authProvider.user?.userId ?? '';
+            bool enableNotifications = false;
+            bool autoApproveSponsors = false;
+            String theme = 'system';
+
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance.collection('dashboard_settings').doc(ngoId).get(),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+                }
+
+                if (snap.hasData && snap.data != null && snap.data!.exists) {
+                  final data = snap.data!.data() as Map<String, dynamic>;
+                  enableNotifications = data['enableNotifications'] ?? false;
+                  autoApproveSponsors = data['autoApproveSponsors'] ?? false;
+                  theme = data['theme'] ?? 'system';
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Enable notifications'),
+                      value: enableNotifications,
+                      onChanged: (v) => setState(() => enableNotifications = v),
+                    ),
+                    SwitchListTile(
+                      title: const Text('Auto-approve sponsors'),
+                      value: autoApproveSponsors,
+                      onChanged: (v) => setState(() => autoApproveSponsors = v),
+                    ),
+                    ListTile(
+                      title: const Text('Theme'),
+                      trailing: DropdownButton<String>(
+                        value: theme,
+                        items: const [
+                          DropdownMenuItem(value: 'system', child: Text('System')),
+                          DropdownMenuItem(value: 'light', child: Text('Light')),
+                          DropdownMenuItem(value: 'dark', child: Text('Dark')),
+                        ],
+                        onChanged: (v) => setState(() { if (v != null) theme = v; }),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          await FirebaseFirestore.instance.collection('dashboard_settings').doc(ngoId).set({
+                            'enableNotifications': enableNotifications,
+                            'autoApproveSponsors': autoApproveSponsors,
+                            'theme': theme,
+                            'updatedAt': FieldValue.serverTimestamp(),
+                          }, SetOptions(merge: true));
+                          if (mounted) Navigator.of(context).pop();
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save settings: $e')));
+                        }
+                      },
+                      child: const Text('Save'),
+                    )
+                  ],
+                );
+              },
+            );
+          },
         ),
         actions: [
           TextButton(
@@ -442,31 +501,26 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
           return _buildErrorWidget(provider);
         }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Statistics Overview
-              _buildStatisticsOverview(provider),
-              const SizedBox(height: 20),
-              
-              // Quick Stats Grid
-              _buildQuickStatsGrid(provider),
-              const SizedBox(height: 20),
-              
-              // Recent Activity
-              _buildRecentActivity(provider),
-              const SizedBox(height: 20),
-              
-              // Upcoming Events
-              _buildUpcomingEvents(provider),
-              const SizedBox(height: 20),
-              
-              // Pending Actions
-              _buildPendingActions(provider),
-              const SizedBox(height: 20),
-            ],
+        return RefreshIndicator(
+          onRefresh: () => provider.refreshData(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatisticsOverview(provider),
+                const SizedBox(height: 12),
+                _buildQuickStatsGrid(provider),
+                const SizedBox(height: 12),
+                _buildRecentActivity(provider),
+                const SizedBox(height: 12),
+                _buildUpcomingEvents(provider),
+                const SizedBox(height: 12),
+                _buildPendingActions(provider),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         );
       },
@@ -474,76 +528,54 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
   }
 
   Widget _buildStatisticsOverview(NGODashboardProvider provider) {
+    // Responsive statistics overview: adjusts column count based on available width
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Performance Overview',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: DashboardColors.safeGreen(800),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            int columns = 1;
+            if (width > 900) columns = 3;
+            else if (width > 600) columns = 2;
+
+            final items = [
+              {'title': 'Active Events', 'value': provider.activeEvents.toString(), 'icon': Icons.event, 'color': DashboardColors.primaryBlue},
+              {'title': 'Participants', 'value': provider.totalParticipants.toString(), 'icon': Icons.people, 'color': DashboardColors.primaryGreen},
+              {'title': 'Completed', 'value': provider.completedProjects.toString(), 'icon': Icons.check_circle, 'color': DashboardColors.primaryOrange},
+              {'title': 'Community', 'value': provider.communityMembers.toString(), 'icon': Icons.group, 'color': DashboardColors.primaryPurple},
+              {'title': 'Volunteer Hrs', 'value': provider.volunteerHours.toString(), 'icon': Icons.access_time, 'color': DashboardColors.primaryTeal},
+              {'title': 'Sponsors', 'value': provider.partnerSponsors.toString(), 'icon': Icons.handshake, 'color': DashboardColors.primaryIndigo},
+              {'title': 'Pending', 'value': provider.pendingReportsCount.toString(), 'icon': Icons.report, 'color': DashboardColors.primaryRed},
+              {'title': 'Budget', 'value': '\$${provider.totalBudget.toStringAsFixed(0)}', 'icon': Icons.attach_money, 'color': DashboardColors.primaryGreen},
+            ];
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStatCard(
-                  'Active Events',
-                  provider.activeEvents.toString(),
-                  Icons.event,
-                  DashboardColors.primaryBlue,
+                Text(
+                  'Performance Overview',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: DashboardColors.safeGreen(800),
+                  ),
                 ),
-                _buildStatCard(
-                  'Total Participants',
-                  provider.totalParticipants.toString(),
-                  Icons.people,
-                  DashboardColors.primaryGreen,
-                ),
-                _buildStatCard(
-                  'Completed Projects',
-                  provider.completedProjects.toString(),
-                  Icons.check_circle,
-                  DashboardColors.primaryOrange,
-                ),
-                _buildStatCard(
-                  'Community Members',
-                  provider.communityMembers.toString(),
-                  Icons.group,
-                  DashboardColors.primaryPurple,
-                ),
-                _buildStatCard(
-                  'Volunteer Hours',
-                  provider.volunteerHours.toString(),
-                  Icons.access_time,
-                  DashboardColors.primaryTeal,
-                ),
-                _buildStatCard(
-                  'Partner Sponsors',
-                  provider.partnerSponsors.toString(),
-                  Icons.handshake,
-                  DashboardColors.primaryIndigo,
-                ),
-                _buildStatCard(
-                  'Pending Reports',
-                  provider.pendingReportsCount.toString(),
-                  Icons.report,
-                  DashboardColors.primaryRed,
-                ),
-                _buildStatCard(
-                  'Total Budget',
-                  '\$${provider.totalBudget.toStringAsFixed(0)}',
-                  Icons.attach_money,
-                  DashboardColors.primaryGreen,
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: items.map((it) {
+                    final w = (width - (12 * (columns - 1))) / columns;
+                    return SizedBox(
+                      width: w.clamp(220.0, width),
+                      child: _buildStatCard(it['title'] as String, it['value'] as String, it['icon'] as IconData, it['color'] as Color),
+                    );
+                  }).toList(),
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -1556,42 +1588,56 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
     final color = Color(card['color'] as int);
     final data = card['data'] as Map<String, dynamic>;
     
-    return Card(
-      elevation: 2,
-      color: DashboardColors.withOpacity(color, 0.05),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: DashboardColors.withOpacity(color, 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    card['icon'] as String,
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                ),
-                const Spacer(),
-                Icon(Icons.trending_up, color: color),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              card['title'] as String,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...data.entries.map((entry) => _buildAnalyticsCardItem(entry.key, entry.value.toString())),
-          ],
+    // Colorful card with soft gradient for better mobile visuals
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [DashboardColors.withOpacity(color, 0.12), DashboardColors.withOpacity(color, 0.04)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DashboardColors.withOpacity(color, 0.18)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: DashboardColors.withOpacity(color, 0.18),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.pie_chart, color: color, size: 20),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  card['title'] as String,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...data.entries.map((entry) => _buildAnalyticsCardItem(entry.key, entry.value.toString())),
+          const SizedBox(height: 8),
+          // Small sparkline placeholder, can be replaced with a chart widget later
+          Container(
+            height: 36,
+            decoration: BoxDecoration(
+              color: DashboardColors.withOpacity(color, 0.06),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            alignment: Alignment.center,
+            child: Text('${entrySummary(data)}', style: Theme.of(context).textTheme.labelSmall),
+          ),
+        ],
       ),
     );
   }
@@ -2067,20 +2113,79 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
     return totalCapacity > 0 ? (provider.totalParticipants / totalCapacity * 100) : 0.0;
   }
 
+  // Small helper to create a compact summary for analytics card placeholder
+  String entrySummary(Map<String, dynamic> data) {
+    try {
+      final nums = data.values.where((v) => v is num).cast<num>().toList();
+      if (nums.isNotEmpty) {
+        final sum = nums.fold<num>(0, (a, b) => a + b);
+        return 'Total: ${sum.toString()}';
+      }
+      return '${data.length} metrics';
+    } catch (_) {
+      return '';
+    }
+  }
+
   // Action methods for upcoming features
   void _showPendingItemsManagement() {
-    // Implementation for pending items management
-    showDialog(
+    final provider = Provider.of<NGODashboardProvider>(context, listen: false);
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Pending Items Management'),
-        content: const Text('Full pending items management interface would appear here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.85,
+        builder: (context, ctl) => Container(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('All Pending Items', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(
+                  children: [
+                    const Text('Pending Reports', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    if (provider.pendingReports.isEmpty) const Padding(padding: EdgeInsets.all(8.0), child: Text('No pending reports')),
+                    for (final r in provider.pendingReports)
+                      Card(
+                        child: ListTile(
+                          title: Text(r.title ?? r.typeDisplay),
+                          subtitle: Text('By ${r.userName ?? r.userId} • ${_formatDate(r.createdAt)}'),
+                          trailing: Wrap(spacing: 8, children: [
+                            ElevatedButton(onPressed: () async { await provider.approveReport(r.reportId); }, child: const Text('Approve')),
+                            OutlinedButton(onPressed: () async { await provider.rejectReport(r.reportId, 'Rejected'); }, child: const Text('Reject')),
+                          ]),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    const Text('Pending Sponsorships', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    if (provider.pendingSponsorships.isEmpty) const Padding(padding: EdgeInsets.all(8.0), child: Text('No pending sponsorships')),
+                    for (final s in provider.pendingSponsorships)
+                      Card(
+                        child: ListTile(
+                          title: Text('${s.sponsorId} sponsorship'),
+                          subtitle: Text('Event: ${s.eventId} • Amount: ${s.amount}'),
+                          trailing: Wrap(spacing: 8, children: [
+                            ElevatedButton(onPressed: () async { await provider.updateSponsorshipStatus(s.sponsorshipId, 'approved'); }, child: const Text('Approve')),
+                            OutlinedButton(onPressed: () async { await provider.updateSponsorshipStatus(s.sponsorshipId, 'rejected', rejectionReason: 'Not suitable'); }, child: const Text('Reject')),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2146,18 +2251,86 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
   }
 
   void _editEvent(EventModel event) {
-    // Implementation for event editing
+    final titleController = TextEditingController(text: event.title);
+    final descController = TextEditingController(text: event.description);
+    final locationController = TextEditingController(text: event.location);
+    final maxController = TextEditingController(text: event.maxParticipants.toString());
+    DateTime selectedDate = event.startTime;
+    String status = event.status;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Event'),
-        content: const Text('Event editing interface would appear here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Event'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
+                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
+                TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location')),
+                TextField(controller: maxController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Max Participants')),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: Text('Start: ${_formatDate(selectedDate)} ${_formatTime(selectedDate)}')),
+                    TextButton(
+                      onPressed: () async {
+                        final d = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now().subtract(const Duration(days: 365)), lastDate: DateTime.now().add(const Duration(days: 365 * 5)));
+                        if (d != null) {
+                          final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDate));
+                          if (t != null) {
+                            setState(() => selectedDate = DateTime(d.year, d.month, d.day, t.hour, t.minute));
+                          }
+                        }
+                      },
+                      child: const Text('Change'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: status,
+                  items: const [
+                    DropdownMenuItem(value: 'upcoming', child: Text('Upcoming')),
+                    DropdownMenuItem(value: 'ongoing', child: Text('Ongoing')),
+                    DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                    DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+                  ],
+                  onChanged: (v) => setState(() { if (v != null) status = v; }),
+                  decoration: const InputDecoration(labelText: 'Status'),
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final db = DatabaseService();
+                  final data = {
+                    'title': titleController.text.trim(),
+                    'description': descController.text.trim(),
+                    'location': locationController.text.trim(),
+                    'startTime': Timestamp.fromDate(selectedDate),
+                    'maxParticipants': int.tryParse(maxController.text) ?? event.maxParticipants,
+                    'status': status,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  };
+                  await db.updateEvent(event.eventId, data);
+                  final provider = Provider.of<NGODashboardProvider>(context, listen: false);
+                  await provider.refreshData();
+                  if (mounted) Navigator.pop(context);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update event: $e')));
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2180,18 +2353,57 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
   }
 
   void _editSponsor(SponsorModel sponsor) {
-    // Implementation for sponsor editing
+    final nameController = TextEditingController(text: sponsor.name);
+    final tierController = TextEditingController(text: sponsor.tier);
+  final emailController = TextEditingController(text: sponsor.contactEmail);
+    bool isActive = sponsor.isActive;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Sponsor'),
-        content: const Text('Sponsor editing interface would appear here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Sponsor'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+                TextField(controller: tierController, decoration: const InputDecoration(labelText: 'Tier')),
+                TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Contact Email')),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  title: const Text('Active'),
+                  value: isActive,
+                  onChanged: (v) => setState(() => isActive = v),
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final db = DatabaseService();
+                  final data = {
+                    'name': nameController.text.trim(),
+                    'tier': tierController.text.trim(),
+                    'contactEmail': emailController.text.trim(),
+                    'isActive': isActive,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  };
+                  await db.updateSponsor(sponsor.sponsorId, data);
+                  final provider = Provider.of<NGODashboardProvider>(context, listen: false);
+                  await provider.refreshData();
+                  if (mounted) Navigator.pop(context);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update sponsor: $e')));
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
