@@ -125,11 +125,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
       // Create event using the provider
       await eventsProvider.createEvent(eventData);
-      
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Event created successfully!')),
       );
-      
+
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

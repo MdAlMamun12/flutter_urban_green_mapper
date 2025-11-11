@@ -477,6 +477,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
   void _generateReport(NGODashboardProvider provider) async {
     try {
       final report = await provider.generateComprehensiveReport(_startDate!, _endDate!);
+      if (!mounted) return;
 
       // Show success dialog with report summary
       showDialog(
@@ -516,6 +517,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to generate report: $e'),

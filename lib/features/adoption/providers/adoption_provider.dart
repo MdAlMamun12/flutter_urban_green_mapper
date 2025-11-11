@@ -4,6 +4,7 @@ import 'package:urban_green_mapper/core/constants/firestore_constants.dart';
 import 'package:urban_green_mapper/core/models/plant_model.dart';
 import 'package:urban_green_mapper/core/models/adoption_model.dart';
 import 'package:urban_green_mapper/core/services/database_service.dart';
+import 'package:urban_green_mapper/core/utils/firestore_utils.dart';
 
 class AdoptionProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
@@ -448,11 +449,12 @@ class AdoptionProvider with ChangeNotifier {
 
       // Filter plants that need care (next watering within 2 days)
       return adoptions.where((adoption) {
-        final careSchedule = adoption.careSchedule;
-        // ignore: unnecessary_null_comparison
-        if (careSchedule != null && careSchedule['next_watering'] != null) {
+  final careSchedule = adoption.careSchedule;
+  if (careSchedule['next_watering'] != null) {
           try {
-            final nextWatering = DateTime.parse(careSchedule['next_watering']);
+            final raw = careSchedule['next_watering'];
+            final nextWatering = parseFirestoreDateTime(raw);
+            if (nextWatering == null) return false;
             return nextWatering.isBefore(now.add(const Duration(days: 2)));
           } catch (e) {
             return false;

@@ -4,6 +4,7 @@ import 'package:urban_green_mapper/core/utils/theme.dart';
 import 'package:urban_green_mapper/core/widgets/responsive_layout.dart';
 import 'package:urban_green_mapper/features/auth/providers/auth_provider.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/dashboard_provider.dart';
+import 'package:urban_green_mapper/features/adoption/providers/adoption_provider.dart';
 import 'package:urban_green_mapper/features/mapping/screens/map_screen.dart';
 import 'package:urban_green_mapper/features/events/screens/events_list.dart';
 import 'package:urban_green_mapper/features/adoption/screens/adoption_screen.dart';
@@ -34,6 +35,16 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
     setState(() {
       _selectedIndex = index;
     });
+
+    // When navigating to Adopt tab, refresh available plants to ensure UI shows latest data
+    if (index == 2) {
+      try {
+        context.read<AdoptionProvider>().loadPlants();
+      } catch (_) {
+        // ignore: avoid_print
+        debugPrint('AdoptionProvider not available when switching tabs');
+      }
+    }
   }
 
   @override

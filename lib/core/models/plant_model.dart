@@ -1,3 +1,5 @@
+import 'package:urban_green_mapper/core/utils/firestore_utils.dart';
+
 class PlantModel {
   final String plantId;
   final String spaceId;
@@ -158,20 +160,12 @@ class PlantModel {
       commonName: map['common_name'] ?? '',
       scientificName: map['scientific_name'] ?? '',
       description: map['description'] ?? '',
-      plantingDate: map['planting_date'] != null 
-          ? DateTime.parse(map['planting_date'])
-          : DateTime.now(),
+      plantingDate: parseFirestoreDateTime(map['planting_date']) ?? DateTime.now(),
       healthStatus: map['health_status'] ?? 'good',
-      lastMaintenance: map['last_maintenance'] != null 
-          ? DateTime.parse(map['last_maintenance'])
-          : DateTime.now(),
-      nextMaintenance: map['next_maintenance'] != null 
-          ? DateTime.parse(map['next_maintenance'])
-          : DateTime.now().add(const Duration(days: 7)),
+      lastMaintenance: parseFirestoreDateTime(map['last_maintenance']) ?? DateTime.now(),
+      nextMaintenance: parseFirestoreDateTime(map['next_maintenance']) ?? DateTime.now().add(const Duration(days: 7)),
       adoptedBy: map['adopted_by'] ?? '',
-      adoptionDate: map['adoption_date'] != null 
-          ? DateTime.parse(map['adoption_date'])
-          : DateTime.now(),
+      adoptionDate: parseFirestoreDateTime(map['adoption_date']) ?? DateTime.now(),
       location: Map<String, dynamic>.from(map['location'] ?? {}),
       height: (map['height'] ?? 0.0).toDouble(),
       diameter: (map['diameter'] ?? 0.0).toDouble(),
@@ -182,8 +176,8 @@ class PlantModel {
       sunlightExposure: map['sunlight_exposure'],
       waterRequirements: map['water_requirements'],
       fertilizerType: map['fertilizer_type'],
-      lastWatered: map['last_watered'] != null ? DateTime.parse(map['last_watered']) : null,
-      lastFertilized: map['last_fertilized'] != null ? DateTime.parse(map['last_fertilized']) : null,
+      lastWatered: parseFirestoreDateTime(map['last_watered']),
+      lastFertilized: parseFirestoreDateTime(map['last_fertilized']),
       specialCareInstructions: map['special_care_instructions'],
       isNativeSpecies: map['is_native_species'],
       conservationStatus: map['conservation_status'],

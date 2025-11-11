@@ -1,3 +1,5 @@
+import 'package:urban_green_mapper/core/utils/firestore_utils.dart';
+
 class GreenSpaceModel {
   final String spaceId;
   final String name;
@@ -150,12 +152,8 @@ class GreenSpaceModel {
       type: map['type'] ?? 'park',
       status: map['status'] ?? 'healthy',
       area: (map['area'] ?? 0.0).toDouble(),
-      createdAt: map['created_at'] != null 
-          ? DateTime.parse(map['created_at'])
-          : DateTime.now(),
-      updatedAt: map['updated_at'] != null 
-          ? DateTime.parse(map['updated_at'])
-          : DateTime.now(),
+    createdAt: parseFirestoreDateTime(map['created_at']) ?? DateTime.now(),
+    updatedAt: parseFirestoreDateTime(map['updated_at']) ?? DateTime.now(),
       createdBy: map['created_by'] ?? '',
       vegetationDensity: map['vegetation_density'] ?? 0,
       biodiversityIndex: map['biodiversity_index'] ?? 0,

@@ -12,6 +12,7 @@ import 'package:urban_green_mapper/core/models/adoption_model.dart';
 import 'package:urban_green_mapper/features/adoption/providers/adoption_provider.dart';
 import 'package:urban_green_mapper/features/auth/providers/auth_provider.dart';
 import 'package:urban_green_mapper/core/constants/firestore_constants.dart';
+import 'package:urban_green_mapper/core/utils/firestore_utils.dart';
 
 class PlantCareScreen extends StatefulWidget {
   final String adoptionId;
@@ -108,7 +109,7 @@ class _PlantCareScreenState extends State<PlantCareScreen> {
         });
       }
     } catch (e) {
-      print('❌ Error loading plant care data: $e');
+      debugPrint('❌ Error loading plant care data: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -137,9 +138,9 @@ class _PlantCareScreenState extends State<PlantCareScreen> {
         final downloadUrl = await snapshot.ref.getDownloadURL();
         downloadUrls.add(downloadUrl);
         
-        print('✅ Care image uploaded: $downloadUrl');
+  debugPrint('✅ Care image uploaded: $downloadUrl');
       } catch (e) {
-        print('❌ Error uploading care image: $e');
+        debugPrint('❌ Error uploading care image: $e');
         // Continue with other images even if one fails
       }
     }
@@ -162,6 +163,7 @@ class _PlantCareScreenState extends State<PlantCareScreen> {
         });
       }
     } catch (e) {
+      debugPrint('Failed to take photo: $e');
       _showErrorSnackbar('Failed to take photo: $e');
     }
   }
@@ -180,6 +182,7 @@ class _PlantCareScreenState extends State<PlantCareScreen> {
         });
       }
     } catch (e) {
+      debugPrint('Failed to pick images: $e');
       _showErrorSnackbar('Failed to pick images: $e');
     }
   }
@@ -305,7 +308,7 @@ class _PlantCareScreenState extends State<PlantCareScreen> {
       }
 
     } catch (e) {
-      print('❌ Error submitting care report: $e');
+      debugPrint('❌ Error submitting care report: $e');
       if (mounted) {
         _showErrorSnackbar('Error submitting care report: ${e.toString()}');
       }
@@ -426,6 +429,11 @@ class _PlantCareScreenState extends State<PlantCareScreen> {
                   color: Colors.white,
                 ),
               ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadData,
             ),
         ],
       ),
@@ -773,7 +781,10 @@ class _PlantCareScreenState extends State<PlantCareScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatDate(DateTime.parse(report['submitted_at'])),
+                      (() {
+                        final dt = parseFirestoreDateTime(report['submitted_at']);
+                        return dt != null ? _formatDate(dt) : '';
+                      })(),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,

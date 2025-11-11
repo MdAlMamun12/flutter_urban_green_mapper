@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:urban_green_mapper/core/utils/firestore_utils.dart';
 
 class ParticipationModel {
   final String participationId;
@@ -53,11 +54,9 @@ class ParticipationModel {
       eventId: map['event_id'] ?? '',
       hoursContributed: map['hours_contributed'] ?? 0,
       status: map['status'] ?? 'registered',
-      joinedAt: map['joined_at'] != null 
-          ? DateTime.parse(map['joined_at'])
-          : DateTime.now(),
-      attendedAt: map['attended_at'] != null ? DateTime.parse(map['attended_at']) : null,
-      cancelledAt: map['cancelled_at'] != null ? DateTime.parse(map['cancelled_at']) : null,
+    joinedAt: parseFirestoreDateTime(map['joined_at']) ?? DateTime.now(),
+    attendedAt: parseFirestoreDateTime(map['attended_at']),
+    cancelledAt: parseFirestoreDateTime(map['cancelled_at']),
       feedback: map['feedback'],
       rating: map['rating'],
       additionalData: map['additional_data'] != null 
