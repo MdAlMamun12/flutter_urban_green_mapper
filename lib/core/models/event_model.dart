@@ -121,27 +121,43 @@ class EventModel {
   }
 
   factory EventModel.fromMap(Map<String, dynamic> map) {
+    DateTime _parseToDateTime(dynamic value, {DateTime? fallback}) {
+      if (value == null) return fallback ?? DateTime.now();
+      try {
+        // Firestore Timestamp
+        if (value.runtimeType.toString().contains('Timestamp') && value.toDate != null) {
+          return value.toDate();
+        }
+      } catch (_) {}
+
+      if (value is DateTime) return value;
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      if (value is String) {
+        final parsed = DateTime.tryParse(value);
+        if (parsed != null) return parsed;
+      }
+
+      return fallback ?? DateTime.now();
+    }
+
+    final start = _parseToDateTime(map['start_time']);
+    final end = map['end_time'] != null ? _parseToDateTime(map['end_time'], fallback: null) : null;
+    final created = _parseToDateTime(map['created_at']);
+    final updated = _parseToDateTime(map['updated_at']);
+
     return EventModel(
       eventId: map['event_id'] ?? '',
       ngoId: map['ngo_id'] ?? '',
       title: map['title'] ?? '',
       description: map['description'] ?? '',
       location: map['location'] ?? '',
-      startTime: map['start_time'] != null 
-          ? DateTime.parse(map['start_time'])
-          : DateTime.now(),
-      endTime: map['end_time'] != null 
-          ? DateTime.parse(map['end_time'])
-          : null,
+      startTime: start,
+      endTime: end,
       maxParticipants: map['max_participants'] ?? 0,
       currentParticipants: map['current_participants'] ?? 0,
       status: map['status'] ?? 'upcoming',
-      createdAt: map['created_at'] != null 
-          ? DateTime.parse(map['created_at'])
-          : DateTime.now(),
-      updatedAt: map['updated_at'] != null 
-          ? DateTime.parse(map['updated_at'])
-          : DateTime.now(),
+      createdAt: created,
+      updatedAt: updated,
       participants: List<String>.from(map['participants'] ?? []),
       tags: List<String>.from(map['tags'] ?? []),
       imageUrl: map['image_url'],

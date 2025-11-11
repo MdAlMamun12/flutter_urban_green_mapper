@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+
 class UserModel {
   final String userId;
   final String name;
@@ -477,6 +479,8 @@ class UserModel {
   static DateTime? _parseDateTime(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
+    // Firestore Timestamp from cloud_firestore
+    if (value is Timestamp) return value.toDate();
     if (value is String) {
       try {
         return DateTime.parse(value);

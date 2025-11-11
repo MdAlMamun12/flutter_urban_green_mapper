@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart' as geo;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:urban_green_mapper/core/utils/theme.dart';
@@ -7,9 +9,12 @@ import 'package:urban_green_mapper/core/widgets/custom_button.dart';
 import 'package:urban_green_mapper/features/auth/providers/auth_provider.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/dashboard_provider.dart';
 import 'package:urban_green_mapper/features/reports/providers/report_provider.dart';
+import 'package:urban_green_mapper/core/models/green_space_model.dart';
+import 'package:urban_green_mapper/features/mapping/screens/map_screen.dart';
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({super.key});
+  final LatLng? initialLocation;
+  const ReportScreen({super.key, this.initialLocation});
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -38,9 +43,34 @@ class _ReportScreenState extends State<ReportScreen> {
   void initState() {
     super.initState();
     // Load green spaces when screen initializes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final dashboardProvider = context.read<DashboardProvider>();
-      dashboardProvider.loadDashboardData();
+      await dashboardProvider.loadDashboardData();
+
+      // If opened from the map with an initial location, try to pre-select the nearest space
+      if (widget.initialLocation != null) {
+        final loc = widget.initialLocation!;
+        double minDist = double.infinity;
+        dynamic nearest;
+        for (final space in dashboardProvider.nearbySpaces) {
+          if (space.latitude == null || space.longitude == null) continue;
+          final d = geo.Geolocator.distanceBetween(
+            loc.latitude,
+            loc.longitude,
+            space.latitude!,
+            space.longitude!,
+          );
+          if (d < minDist) {
+            minDist = d;
+            nearest = space;
+          }
+        }
+        if (nearest != null) {
+          setState(() {
+            _selectedSpaceId = nearest.spaceId;
+          });
+        }
+      }
     });
   }
 
@@ -376,6 +406,32 @@ class _ReportScreenState extends State<ReportScreen> {
             style: TextStyle(color: Colors.orange[700], fontSize: 12),
           ),
         ],
+        // Selected space preview
+        if (_selectedSpaceId != null) ...[
+          const SizedBox(height: 12),
+          Builder(builder: (context) {
+            final matches = dashboardProvider.nearbySpaces.where((s) => s.spaceId == _selectedSpaceId).toList();
+            if (matches.isEmpty) return const SizedBox.shrink();
+            final selected = matches.first;
+            return Card(
+              color: Colors.green[50],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                leading: Icon(_getSpaceIcon(selected.type), color: Colors.green[700]),
+                title: Text(selected.name, style: AppTheme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                subtitle: Text('${selected.type} • ${_getDistanceText(selected)}', style: AppTheme.textTheme.bodySmall),
+                trailing: IconButton(
+                  icon: const Icon(Icons.map, color: Colors.green),
+                  onPressed: () {
+                    // Open full map to show this space
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const MapScreen()));
+                  },
+                ),
+              ),
+            );
+          }),
+        ],
       ],
     );
   }
@@ -474,6 +530,35 @@ class _ReportScreenState extends State<ReportScreen> {
               );
             },
           ),
+          const SizedBox(height: 12),
+        ] else ...[
+          const SizedBox(height: 12),
+        ],
+
+        // If no photos yet, show a helpful placeholder
+        if (_imagePaths.isEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.grey[50],
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.photo_camera_outlined, size: 36, color: Colors.grey[600]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Add photos to make your report clearer. Show damaged areas, location markers, or any evidence.',
+                    style: AppTheme.textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 12),
         ],
 
@@ -622,5 +707,37 @@ class _ReportScreenState extends State<ReportScreen> {
         ],
       ],
     );
+  }
+
+  IconData _getSpaceIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'park':
+        return Icons.park;
+      case 'garden':
+        return Icons.local_florist;
+      case 'forest':
+        return Icons.forest;
+      default:
+        return Icons.nature;
+    }
+  }
+
+  String _getDistanceText(GreenSpaceModel space) {
+    try {
+      if (space.latitude == null || space.longitude == null) return 'Location unknown';
+      if (widget.initialLocation != null) {
+        final d = geo.Geolocator.distanceBetween(
+          widget.initialLocation!.latitude,
+          widget.initialLocation!.longitude,
+          space.latitude!,
+          space.longitude!,
+        );
+        if (d < 1000) return '${d.toStringAsFixed(0)} m';
+        return '${(d / 1000).toStringAsFixed(1)} km';
+      }
+    } catch (_) {
+      // ignore and fallthrough
+    }
+    return 'Distance unknown';
   }
 }

@@ -207,7 +207,8 @@ class _EventsListState extends State<EventsList> {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Unknown';
     return '${date.day}/${date.month}/${date.year}';
   }
 

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+
 class ReportModel {
   final String reportId;
   final String userId;
@@ -62,12 +64,8 @@ class ReportModel {
       photos: List<String>.from(map['photos'] ?? []),
       status: map['status'] ?? 'pending',
       rejectionReason: map['rejection_reason'],
-      createdAt: map['created_at'] != null 
-          ? DateTime.parse(map['created_at'])
-          : DateTime.now(),
-      updatedAt: map['updated_at'] != null 
-          ? DateTime.parse(map['updated_at'])
-          : null,
+    createdAt: _parseDateTime(map['created_at']) ?? DateTime.now(),
+    updatedAt: _parseDateTime(map['updated_at']),
       userName: map['user_name'],
       spaceName: map['space_name'],
       title: map['title'],
@@ -434,4 +432,20 @@ class ReportModel {
       return 'Updated just now';
     }
   }
+  // Helper to parse Firestore Timestamp, int (ms), String or DateTime
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return null;
+  }
+
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:urban_green_mapper/core/models/event_model.dart';
 import 'package:urban_green_mapper/core/models/green_space_model.dart';
 import 'package:urban_green_mapper/core/models/plant_model.dart';
@@ -86,7 +87,12 @@ class DashboardProvider with ChangeNotifier {
       
       print('✅ Loaded ${_nearbySpaces.length} green spaces');
     } catch (e) {
-      _error = 'Failed to load green spaces: $e';
+      // Handle Firestore permission errors gracefully
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        _error = 'Insufficient permissions to load nearby green spaces.';
+      } else {
+        _error = 'Failed to load green spaces: $e';
+      }
       print('❌ Error loading nearby spaces: $e');
       _nearbySpaces = []; // Clear any previous data
     }
@@ -105,7 +111,11 @@ class DashboardProvider with ChangeNotifier {
       
       print('✅ Loaded ${_upcomingEvents.length} upcoming events');
     } catch (e) {
-      _error = 'Failed to load upcoming events: $e';
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        _error = 'Insufficient permissions to load upcoming events.';
+      } else {
+        _error = 'Failed to load upcoming events: $e';
+      }
       print('❌ Error loading upcoming events: $e');
       _upcomingEvents = []; // Clear any previous data
     }
@@ -168,7 +178,11 @@ class DashboardProvider with ChangeNotifier {
       _systemStats = await _databaseService.getSystemStatistics();
       print('✅ Loaded system statistics: $_systemStats');
     } catch (e) {
-      _error = 'Failed to load system statistics: $e';
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        _error = 'Insufficient permissions to load platform statistics.';
+      } else {
+        _error = 'Failed to load system statistics: $e';
+      }
       print('❌ Error loading system statistics: $e');
       _systemStats = {};
     }
