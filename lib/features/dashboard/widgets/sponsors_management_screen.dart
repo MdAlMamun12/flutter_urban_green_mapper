@@ -4,6 +4,7 @@ import 'package:urban_green_mapper/core/utils/theme.dart';
 import 'package:urban_green_mapper/core/widgets/custom_button.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/ngo_dashboard_provider.dart';
 import 'package:urban_green_mapper/core/models/sponsor_model.dart';
+import 'package:urban_green_mapper/features/dashboard/utils/dashboard_colors.dart';
 
 class SponsorsManagementScreen extends StatefulWidget {
   const SponsorsManagementScreen({super.key});
@@ -33,8 +34,8 @@ class _SponsorsManagementScreenState extends State<SponsorsManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sponsors Management'),
-        backgroundColor: Colors.green[700],
-        foregroundColor: Colors.white,
+        backgroundColor: DashboardColors.safeGreen(700),
+        foregroundColor: DashboardColors.primaryWhite,
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -90,7 +91,7 @@ class _SponsorsManagementScreenState extends State<SponsorsManagementScreen> {
                     label: Text(
                       tier == 'all' ? 'All' : tier.toUpperCase(),
                       style: TextStyle(
-                        color: _filterTier == tier ? Colors.white : _getTierColor(tier),
+                        color: _filterTier == tier ? DashboardColors.primaryWhite : _getTierColor(tier),
                       ),
                     ),
                     selected: _filterTier == tier,
@@ -100,9 +101,9 @@ class _SponsorsManagementScreenState extends State<SponsorsManagementScreen> {
                       });
                       _filterSponsors();
                     },
-                    backgroundColor: Colors.grey[200],
+                    backgroundColor: DashboardColors.safeGrey(200),
                     selectedColor: _getTierColor(tier),
-                    checkmarkColor: Colors.white,
+                    checkmarkColor: DashboardColors.primaryWhite,
                   ),
                 );
               }).toList(),
@@ -134,84 +135,93 @@ class _SponsorsManagementScreenState extends State<SponsorsManagementScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: _getTierColor(sponsor.tier).withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: _getTierColor(sponsor.tier),
-              width: 2,
-            ),
-          ),
-          child: Icon(
-            Icons.business,
-            color: _getTierColor(sponsor.tier),
-            size: 24,
-          ),
-        ),
-        title: Text(
-          sponsor.name,
-          style: AppTheme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(sponsor.contactEmail),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _getTierColor(sponsor.tier).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    sponsor.tier.toUpperCase(),
-                    style: TextStyle(
-                      color: _getTierColor(sponsor.tier),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '\$${sponsor.totalContribution.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20),
-              onPressed: () => _editSponsor(sponsor),
-            ),
-            IconButton(
-              icon: Icon(
-                sponsor.isActive ? Icons.toggle_on : Icons.toggle_off,
-                size: 20,
-                color: sponsor.isActive ? Colors.green : Colors.grey,
-              ),
-              onPressed: () => _toggleSponsorStatus(sponsor),
-            ),
-          ],
-        ),
+      child: InkWell(
         onTap: () => _showSponsorDetails(sponsor),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: _getTierColor(sponsor.tier).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _getTierColor(sponsor.tier),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.business,
+                  color: _getTierColor(sponsor.tier),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sponsor.name,
+                      style: AppTheme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(sponsor.contactEmail),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _getTierColor(sponsor.tier).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            sponsor.tier.toUpperCase(),
+                            style: TextStyle(
+                              color: _getTierColor(sponsor.tier),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '\$${sponsor.totalContribution.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: DashboardColors.primaryGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 20),
+                    onPressed: () => _editSponsor(sponsor),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      sponsor.isActive ? Icons.toggle_on : Icons.toggle_off,
+                      size: 20,
+                      color: sponsor.isActive ? DashboardColors.primaryGreen : DashboardColors.primaryGrey,
+                    ),
+                    onPressed: () => _toggleSponsorStatus(sponsor),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -221,19 +231,19 @@ class _SponsorsManagementScreenState extends State<SponsorsManagementScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.business, size: 64, color: Colors.grey[400]),
+          Icon(Icons.business, size: 64, color: DashboardColors.safeGrey(400)),
           const SizedBox(height: 16),
           Text(
             'No sponsors found',
             style: AppTheme.textTheme.titleMedium?.copyWith(
-              color: Colors.grey[600],
+              color: DashboardColors.safeGrey(600),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Add your first sponsor to start building partnerships',
             style: AppTheme.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[500],
+              color: DashboardColors.safeGrey(500),
             ),
             textAlign: TextAlign.center,
           ),
@@ -250,15 +260,15 @@ class _SponsorsManagementScreenState extends State<SponsorsManagementScreen> {
   Color _getTierColor(String tier) {
     switch (tier) {
       case 'platinum':
-        return Colors.blue;
+        return DashboardColors.tierPlatinum;
       case 'gold':
-        return Colors.amber;
+        return DashboardColors.tierGold;
       case 'silver':
-        return Colors.grey;
+        return DashboardColors.tierSilver;
       case 'bronze':
-        return Colors.brown;
+        return DashboardColors.tierBronze;
       default:
-        return Colors.green;
+        return DashboardColors.primaryGreen;
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/ngo_dashboard_provider.dart';
 import 'package:urban_green_mapper/features/auth/providers/auth_provider.dart';
@@ -6,84 +7,17 @@ import 'package:urban_green_mapper/core/models/event_model.dart';
 import 'package:urban_green_mapper/core/models/report_model.dart';
 import 'package:urban_green_mapper/core/models/sponsor_model.dart';
 import 'package:urban_green_mapper/core/models/sponsorship_model.dart';
+import 'package:urban_green_mapper/core/models/green_space_model.dart';
 import 'package:urban_green_mapper/features/dashboard/widgets/create_event_dialog.dart';
 import 'package:urban_green_mapper/features/dashboard/widgets/report_generator_screen.dart';
 import 'package:urban_green_mapper/features/dashboard/widgets/sponsors_management_screen.dart';
 import 'package:urban_green_mapper/features/dashboard/widgets/volunteer_invitation_screen.dart';
 import 'package:urban_green_mapper/features/dashboard/widgets/analytics_dashboard.dart';
+import 'package:urban_green_mapper/features/dashboard/utils/dashboard_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:urban_green_mapper/core/services/database_service.dart';
 
-// Color utility class to handle nullable colors permanently
-class DashboardColors {
-  // Constant colors
-  static const Color primaryGreen = Color(0xFF4CAF50);
-  static const Color primaryWhite = Colors.white;
-  static const Color primaryGrey = Colors.grey;
-  static const Color primaryRed = Colors.red;
-  static const Color primaryBlue = Colors.blue;
-  static const Color primaryOrange = Colors.orange;
-  static const Color primaryPurple = Colors.purple;
-  static const Color primaryTeal = Colors.teal;
-  static const Color primaryIndigo = Colors.indigo;
-  static const Color primaryAmber = Colors.amber;
-  
-  // Status colors
-  static const Color statusUpcoming = Colors.blue;
-  static const Color statusOngoing = Colors.green;
-  static const Color statusCompleted = Colors.grey;
-  static const Color statusCancelled = Colors.red;
-  
-  // Tier colors
-  static const Color tierPlatinum = Colors.blueGrey;
-  static const Color tierGold = Colors.amber;
-  static const Color tierSilver = Colors.grey;
-  static const Color tierBronze = Colors.orange;
-  
-  // Safe color getters that never return null
-  static Color safeGrey(int shade) {
-    final color = Colors.grey[shade];
-    return color ?? Colors.grey;
-  }
-  
-  static Color safeGreen(int shade) {
-    final color = Colors.green[shade];
-    return color ?? Colors.green;
-  }
-  
-  static Color safeBlue(int shade) {
-    final color = Colors.blue[shade];
-    return color ?? Colors.blue;
-  }
-  
-  static Color safeOrange(int shade) {
-    final color = Colors.orange[shade];
-    return color ?? Colors.orange;
-  }
-  
-  static Color safeRed(int shade) {
-    final color = Colors.red[shade];
-    return color ?? Colors.red;
-  }
-  
-  static Color safePurple(int shade) {
-    final color = Colors.purple[shade];
-    return color ?? Colors.purple;
-  }
-  
-  // Helper method to ensure non-null color with opacity
-  static Color withOpacity(Color color, double opacity) {
-    return color.withOpacity(opacity);
-  }
-  
-  // Helper to safely convert num to double for progress values
-  static double safeDouble(dynamic value) {
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is num) return value.toDouble();
-    return 0.0;
-  }
-}
+// Dashboard color constants moved to `utils/dashboard_colors.dart`
 
 // Add the NGODashboard Screen Widget here
 class NGODashboard extends StatefulWidget {
@@ -571,6 +505,8 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
                 _buildStatisticsOverview(provider),
                 const SizedBox(height: 12),
                 _buildQuickStatsGrid(provider),
+                const SizedBox(height: 12),
+                _buildEngagementCards(provider),
                 const SizedBox(height: 12),
                 _buildRecentActivity(provider),
                 const SizedBox(height: 12),
@@ -1065,6 +1001,239 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
         ],
       ),
     );
+  }
+
+  Widget _buildEngagementCards(NGODashboardProvider provider) {
+    return Column(
+      children: [
+        // Top Green Spaces Card
+        FutureBuilder<List<GreenSpaceModel>>(
+          future: provider.getTopNearbyGreenSpaces(limit: 3),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    height: 120,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              );
+            }
+
+            final greenSpaces = snapshot.data ?? [];
+            return Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.eco, color: DashboardColors.primaryGreen, size: 24),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Top Green Spaces',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (greenSpaces.isEmpty)
+                      _buildEmptyState('No green spaces found', Icons.landscape)
+                    else
+                      Column(
+                        children: greenSpaces.map((space) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: DashboardColors.safeGrey(50),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: DashboardColors.safeGrey(200)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: DashboardColors.withOpacity(DashboardColors.primaryGreen, 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Icon(
+                                    _getGreenSpaceIcon(space.type),
+                                    color: DashboardColors.primaryGreen,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        space.name,
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${space.type} • ${space.statusText}',
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                          color: DashboardColors.safeGrey(600),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: DashboardColors.withOpacity(_getHealthColor(space.status), 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${space.biodiversityIndex.toStringAsFixed(1)}',
+                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: _getHealthColor(space.status),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        // Notifications Card
+        StreamBuilder<int>(
+          stream: provider.getUnreadNotificationsStream(),
+          builder: (context, snapshot) {
+            final unreadCount = snapshot.data ?? 0;
+            return Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: DashboardColors.withOpacity(DashboardColors.primaryOrange, 0.1),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Icon(
+                            Icons.notifications,
+                            color: DashboardColors.primaryOrange,
+                            size: 24,
+                          ),
+                        ),
+                        if (unreadCount > 0)
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: DashboardColors.primaryRed,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(
+                              child: Text(
+                                unreadCount > 99 ? '99+' : unreadCount.toString(),
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Notifications',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            unreadCount == 0
+                                ? 'All caught up!'
+                                : 'You have $unreadCount unread message${unreadCount != 1 ? 's' : ''}',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: DashboardColors.safeGrey(600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward,
+                      color: DashboardColors.safeGrey(400),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  IconData _getGreenSpaceIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'park':
+        return Icons.park;
+      case 'garden':
+        return Icons.grass;
+      case 'forest':
+        return Icons.forest;
+      case 'wetland':
+        return Icons.water;
+      default:
+        return Icons.eco;
+    }
+  }
+
+  Color _getHealthColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'healthy':
+        return DashboardColors.primaryGreen;
+      case 'restored':
+        return DashboardColors.primaryTeal;
+      case 'degraded':
+        return DashboardColors.primaryOrange;
+      case 'critical':
+        return DashboardColors.primaryRed;
+      default:
+        return DashboardColors.safeGrey(500);
+    }
   }
 
   Widget _buildPendingActions(NGODashboardProvider provider) {
@@ -1608,20 +1777,26 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              // Mobile Analytics Cards
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.8,
-                ),
-                itemCount: mobileCards.length,
-                itemBuilder: (context, index) {
-                  final card = mobileCards[index];
-                  return _buildAnalyticsCard(card);
+              // Mobile Analytics Cards (responsive)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  int columns = 1;
+                  if (width > 1000) columns = 3;
+                  else if (width > 700) columns = 2;
+                  final gap = 12.0;
+                  final cardWidth = (width - (gap * (columns - 1))) / columns;
+
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: mobileCards.map((card) {
+                      return SizedBox(
+                        width: cardWidth.clamp(240.0, 480.0),
+                        child: _buildAnalyticsCard(card),
+                      );
+                    }).toList(),
+                  );
                 },
               ),
               const SizedBox(height: 20),
@@ -1648,55 +1823,74 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
     final data = card['data'] as Map<String, dynamic>;
     
     // Colorful card with soft gradient for better mobile visuals
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [DashboardColors.withOpacity(color, 0.12), DashboardColors.withOpacity(color, 0.04)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return InkWell(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsDashboard()));
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [DashboardColors.withOpacity(color, 0.12), DashboardColors.withOpacity(color, 0.04)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DashboardColors.withOpacity(color, 0.18)),
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DashboardColors.withOpacity(color, 0.18)),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: DashboardColors.withOpacity(color, 0.18),
-                  borderRadius: BorderRadius.circular(8),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: DashboardColors.withOpacity(color, 0.18),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.pie_chart, color: color, size: 20),
                 ),
-                child: Icon(Icons.pie_chart, color: color, size: 20),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  card['title'] as String,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    card['title'] as String,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...data.entries.map((entry) => _buildAnalyticsCardItem(entry.key, entry.value.toString())),
-          const SizedBox(height: 8),
-          // Small sparkline placeholder, can be replaced with a chart widget later
-          Container(
-            height: 36,
-            decoration: BoxDecoration(
-              color: DashboardColors.withOpacity(color, 0.06),
-              borderRadius: BorderRadius.circular(6),
+              ],
             ),
-            alignment: Alignment.center,
-            child: Text('${entrySummary(data)}', style: Theme.of(context).textTheme.labelSmall),
-          ),
-        ],
+            const SizedBox(height: 12),
+            ...data.entries.map((entry) => _buildAnalyticsCardItem(entry.key, entry.value.toString())),
+            const SizedBox(height: 8),
+            // Small visual summary (mini-chart)
+            Row(
+              children: [
+                SizedBox(
+                  height: 48,
+                  width: 48,
+                  child: _buildMiniChart(data.cast<String, dynamic>()),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: DashboardColors.withOpacity(color, 0.06),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('${entrySummary(data)}', style: Theme.of(context).textTheme.labelSmall),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1804,24 +1998,89 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _capitalize(data['type'] as String),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // You can add specific visualization for each analytics type here
-            Text(
-              'Analytics data available',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: DashboardColors.safeGrey(600),
-              ),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 700;
+            final title = _capitalize(data['type'] as String? ?? 'Analytics');
+            // Prefer an explicit metrics map if present
+            final metrics = (data['metrics'] as Map<String, dynamic>?) ?? (data['values'] as Map<String, dynamic>?) ?? data;
+
+            Widget metricsList() {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: metrics.entries.take(8).map((entry) {
+                      return _buildSummaryItem(entry.key, entry.value);
+                    }).toList(),
+                  ),
+                ],
+              );
+            }
+
+            Widget rightPanel() {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: DashboardColors.safeGrey(50),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: DashboardColors.safeGrey(200)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Overview',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: isWide ? 220 : 160,
+                      width: double.infinity,
+                      child: Center(
+                        child: Text(
+                          entrySummary(metrics),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: DashboardColors.safeGrey(600)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (isWide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left: metrics list
+                  Expanded(child: metricsList()),
+                  const SizedBox(width: 16),
+                  // Right: compact chart/overview
+                  SizedBox(width: 340, child: rightPanel()),
+                ],
+              );
+            }
+
+            // Narrow screens: stack vertically
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                metricsList(),
+                const SizedBox(height: 12),
+                rightPanel(),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -2184,6 +2443,92 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
     } catch (_) {
       return '';
     }
+  }
+
+  /// Build a small mini-chart (pie or bar) for compact analytics previews
+  Widget _buildMiniChart(Map<String, dynamic> metrics) {
+    // Simple heuristic: if keys are status-like, show pie; if tier-like, show bars
+    final keys = metrics.keys.map((k) => k.toString().toLowerCase()).toSet();
+    final statusKeys = {'upcoming', 'ongoing', 'completed', 'cancelled', 'in_progress'};
+    final tierKeys = {'bronze', 'silver', 'gold', 'platinum'};
+
+    if (keys.intersection(statusKeys).isNotEmpty) {
+      final sections = <PieChartSectionData>[];
+      metrics.forEach((k, v) {
+        final count = (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0.0;
+        if (count <= 0) return;
+        Color color;
+        switch (k.toLowerCase()) {
+          case 'upcoming':
+            color = DashboardColors.statusUpcoming;
+            break;
+          case 'ongoing':
+            color = DashboardColors.statusOngoing;
+            break;
+          case 'completed':
+            color = DashboardColors.statusCompleted;
+            break;
+          case 'cancelled':
+            color = DashboardColors.statusCancelled;
+            break;
+          default:
+            color = DashboardColors.safeGrey(400);
+        }
+        sections.add(PieChartSectionData(value: count, color: color, radius: 12, showTitle: false));
+      });
+
+      if (sections.isEmpty) return const SizedBox.shrink();
+      return PieChart(PieChartData(sections: sections, centerSpaceRadius: 6, sectionsSpace: 2));
+    }
+
+    if (keys.intersection(tierKeys).isNotEmpty) {
+      return _buildMiniBar(metrics);
+    }
+
+    // Default: small pie from first 3 numeric entries
+    final sections = <PieChartSectionData>[];
+    for (final e in metrics.entries.take(3)) {
+      final count = (e.value is num) ? (e.value as num).toDouble() : double.tryParse(e.value.toString()) ?? 0.0;
+      if (count <= 0) continue;
+      sections.add(PieChartSectionData(value: count, color: DashboardColors.primaryBlue, radius: 12, showTitle: false));
+    }
+    if (sections.isEmpty) return const SizedBox.shrink();
+    return PieChart(PieChartData(sections: sections, centerSpaceRadius: 6, sectionsSpace: 2));
+  }
+
+  Widget _buildMiniBar(Map<String, dynamic> metrics) {
+    final entries = metrics.entries.where((e) => (e.value is num) || double.tryParse(e.value.toString()) != null).toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    final barGroups = <BarChartGroupData>[];
+    for (var i = 0; i < entries.length; i++) {
+      final e = entries[i];
+      final value = (e.value is num) ? (e.value as num).toDouble() : double.tryParse(e.value.toString()) ?? 0.0;
+      barGroups.add(BarChartGroupData(x: i, barRods: [BarChartRodData(toY: value, color: _miniBarColor(e.key), width: 6)]));
+    }
+
+    return SizedBox(
+      height: 48,
+      width: 48.0 * entries.length.clamp(1, 4),
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceEvenly,
+          barGroups: barGroups,
+          titlesData: FlTitlesData(show: false),
+          gridData: FlGridData(show: false),
+          borderData: FlBorderData(show: false),
+        ),
+      ),
+    );
+  }
+
+  Color _miniBarColor(String label) {
+    final lower = label.toLowerCase();
+    if (lower.contains('gold')) return DashboardColors.tierGold;
+    if (lower.contains('silver')) return DashboardColors.tierSilver;
+    if (lower.contains('bronze')) return DashboardColors.tierBronze;
+    if (lower.contains('platinum')) return DashboardColors.tierPlatinum;
+    return DashboardColors.primaryTeal;
   }
 
   // Action methods for upcoming features
@@ -2711,3 +3056,5 @@ class _NGODashboardState extends State<NGODashboard> with SingleTickerProviderSt
     }
   }
 }
+
+// Custom painter removed in favor of fl_chart components

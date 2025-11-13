@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:urban_green_mapper/core/utils/theme.dart';
 import 'package:urban_green_mapper/core/widgets/custom_button.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/ngo_dashboard_provider.dart';
+import 'package:urban_green_mapper/features/dashboard/utils/dashboard_colors.dart';
 
 class ReportGeneratorScreen extends StatefulWidget {
   const ReportGeneratorScreen({super.key});
@@ -38,8 +39,8 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Generate Report'),
-        backgroundColor: Colors.green[700],
-        foregroundColor: Colors.white,
+        backgroundColor: DashboardColors.safeGreen(700),
+        foregroundColor: DashboardColors.primaryWhite,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -97,7 +98,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.green[50],
+        color: DashboardColors.safeGreen(50),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -128,7 +129,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
             Text(
               'Duration: ${_calculateDuration()} days',
               style: TextStyle(
-                color: Colors.green[700],
+                color: DashboardColors.safeGreen(700),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -190,8 +191,8 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
                 });
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[50],
-                foregroundColor: Colors.green[700],
+                backgroundColor: DashboardColors.safeGreen(50),
+                foregroundColor: DashboardColors.safeGreen(700),
                 elevation: 0,
               ),
               child: Text(range['label'] as String),
@@ -224,7 +225,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
                   ElevatedButton(
                     onPressed: () => _selectStartDate(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: DashboardColors.primaryWhite,
                       foregroundColor: Colors.black87,
                       elevation: 1,
                       minimumSize: const Size(double.infinity, 50),
@@ -250,7 +251,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
                   ElevatedButton(
                     onPressed: () => _selectEndDate(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: DashboardColors.primaryWhite,
                       foregroundColor: Colors.black87,
                       elevation: 1,
                       minimumSize: const Size(double.infinity, 50),
@@ -299,8 +300,8 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
                       _reportType = type;
                     });
                   },
-                  selectedColor: Colors.green[100],
-                  checkmarkColor: Colors.green,
+                  selectedColor: DashboardColors.safeGreen(100),
+                  checkmarkColor: DashboardColors.primaryGreen,
                 );
               }).toList(),
             ),
@@ -308,13 +309,13 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: DashboardColors.safeGrey(50),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 _getReportTypeDescription(_reportType),
                 style: AppTheme.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
+                  color: DashboardColors.safeGrey(600),
                 ),
               ),
             ),
@@ -337,7 +338,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(DashboardColors.primaryWhite),
                 ),
               )
             : const Row(
@@ -521,7 +522,7 @@ class _ReportGeneratorScreenState extends State<ReportGeneratorScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to generate report: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: DashboardColors.primaryRed,
         ),
       );
     }

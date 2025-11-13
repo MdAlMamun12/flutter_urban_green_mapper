@@ -59,6 +59,7 @@ dependencies:
   printing: ^5.11.0
   permission_handler: ^11.0.1
   url_launcher: ^6.1.11
+  fl_chart: ^0.60.0
  
 
 dev_dependencies:

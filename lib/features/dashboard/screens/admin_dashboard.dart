@@ -10,6 +10,7 @@ import 'package:urban_green_mapper/features/dashboard/providers/admin_dashboard_
 import 'package:urban_green_mapper/features/profile/screens/profile_screen.dart';
 import 'package:urban_green_mapper/core/models/user_model.dart';
 import 'package:urban_green_mapper/core/models/report_model.dart';
+import 'package:urban_green_mapper/features/dashboard/utils/dashboard_colors.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -39,8 +40,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
-        backgroundColor: Colors.red[700],
-        foregroundColor: Colors.white,
+        backgroundColor: DashboardColors.safeRed(700),
+        foregroundColor: DashboardColors.primaryWhite,
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
@@ -70,9 +71,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               selectedIndex: _selectedIndex,
               onDestinationSelected: _onItemTapped,
               labelType: NavigationRailLabelType.all,
-              backgroundColor: Colors.red[50],
-              selectedLabelTextStyle: const TextStyle(color: Colors.red),
-              selectedIconTheme: const IconThemeData(color: Colors.red),
+              backgroundColor: DashboardColors.safeRed(50),
+              selectedLabelTextStyle: const TextStyle(color: Color(0xFFF44336)),
+              selectedIconTheme: const IconThemeData(color: Color(0xFFF44336)),
               destinations: const [
                 NavigationRailDestination(
                   icon: Icon(Icons.dashboard),
@@ -102,9 +103,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               selectedIndex: _selectedIndex,
               onDestinationSelected: _onItemTapped,
               labelType: NavigationRailLabelType.all,
-              backgroundColor: Colors.red[50],
-              selectedLabelTextStyle: const TextStyle(color: Colors.red),
-              selectedIconTheme: const IconThemeData(color: Colors.red),
+              backgroundColor: DashboardColors.safeRed(50),
+              selectedLabelTextStyle: const TextStyle(color: Color(0xFFF44336)),
+              selectedIconTheme: const IconThemeData(color: Color(0xFFF44336)),
               destinations: const [
                 NavigationRailDestination(
                   icon: Icon(Icons.dashboard),
@@ -142,16 +143,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.red[700]!,
-            Colors.red[600]!,
-            Colors.red[500]!,
+            DashboardColors.safeRed(700),
+            DashboardColors.safeRed(600),
+            DashboardColors.safeRed(500),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: DashboardColors.withOpacity(DashboardColors.primaryGrey, 0.1),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -162,29 +163,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
         backgroundColor: Colors.transparent,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard, color: Colors.white),
-            activeIcon: Icon(Icons.dashboard, color: Colors.yellow),
+            icon: Icon(Icons.dashboard, color: DashboardColors.primaryWhite),
+            activeIcon: Icon(Icons.dashboard, color: DashboardColors.primaryAmber),
             label: 'Overview',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings, color: Colors.white),
-            activeIcon: Icon(Icons.settings, color: Colors.yellow),
+            icon: Icon(Icons.settings, color: DashboardColors.primaryWhite),
+            activeIcon: Icon(Icons.settings, color: DashboardColors.primaryAmber),
             label: 'System',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.people, color: Colors.white),
-            activeIcon: Icon(Icons.people, color: Colors.yellow),
+            icon: Icon(Icons.people, color: DashboardColors.primaryWhite),
+            activeIcon: Icon(Icons.people, color: DashboardColors.primaryAmber),
             label: 'Users',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person, color: Colors.white),
-            activeIcon: Icon(Icons.person, color: Colors.yellow),
+            icon: Icon(Icons.person, color: DashboardColors.primaryWhite),
+            activeIcon: Icon(Icons.person, color: DashboardColors.primaryAmber),
             label: 'Profile',
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.yellow,
-        unselectedItemColor: Colors.white,
+        selectedItemColor: DashboardColors.primaryAmber,
+        unselectedItemColor: DashboardColors.primaryWhite,
         selectedLabelStyle: const TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 12,
@@ -207,10 +208,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              _buildNotificationItem('System Update', 'New system update available for installation', Icons.system_update, Colors.blue),
-              _buildNotificationItem('Security Alert', 'Unusual login activity detected', Icons.security, Colors.orange),
-              _buildNotificationItem('Backup Complete', 'Daily backup completed successfully', Icons.backup, Colors.green),
-              _buildNotificationItem('Storage Warning', 'Storage usage at 85% capacity', Icons.storage, Colors.red),
+              _buildNotificationItem('System Update', 'New system update available for installation', Icons.system_update, DashboardColors.primaryBlue),
+              _buildNotificationItem('Security Alert', 'Unusual login activity detected', Icons.security, DashboardColors.safeOrange(600)),
+              _buildNotificationItem('Backup Complete', 'Daily backup completed successfully', Icons.backup, DashboardColors.primaryGreen),
+              _buildNotificationItem('Storage Warning', 'Storage usage at 85% capacity', Icons.storage, DashboardColors.primaryRed),
             ],
           ),
         ),
@@ -407,28 +408,28 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'System Administration',
+                'System Administration',
               style: AppTheme.textTheme.headlineSmall?.copyWith(
-                color: Colors.red[800],
+                color: DashboardColors.safeRed(800),
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Welcome, ${user?.name ?? 'Administrator'}. Monitor and manage the Urban Green Mapper platform.',
-              style: AppTheme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                style: AppTheme.textTheme.bodyMedium?.copyWith(color: DashboardColors.safeGrey(600)),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  'Last updated: ${_formatTime(DateTime.now())}',
-                  style: AppTheme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                ),
-              ],
-            ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 16, color: DashboardColors.safeGrey(600)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Last updated: ${_formatTime(DateTime.now())}',
+                    style: AppTheme.textTheme.bodySmall?.copyWith(color: DashboardColors.safeGrey(600)),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
@@ -445,7 +446,7 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
           children: [
             Row(
               children: [
-                Icon(Icons.analytics, color: Colors.red[700]),
+                Icon(Icons.analytics, color: DashboardColors.safeRed(700)),
                 const SizedBox(width: 8),
                 Text(
                   'Platform Statistics',
@@ -453,75 +454,75 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (dashboardProvider.isLoading)
-              const Center(child: CircularProgressIndicator())
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isSmall = constraints.maxWidth < 200;
-                  return GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: isSmall ? 2 : 3,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: isSmall ? 0.8 : 1.2,
-                    children: [
-                      _buildStatItem(
-                        value: dashboardProvider.totalUsers.toString(),
-                        label: 'Total Users',
-                        icon: Icons.people,
-                        color: Colors.blue,
-                      ),
-                      _buildStatItem(
-                        value: dashboardProvider.totalReports.toString(),
-                        label: 'Reports',
-                        icon: Icons.assignment,
-                        color: Colors.orange,
-                      ),
-                      _buildStatItem(
-                        value: dashboardProvider.totalEvents.toString(),
-                        label: 'Events',
-                        icon: Icons.event,
-                        color: Colors.green,
-                      ),
-                      if (!isSmall) _buildStatItem(
-                        value: dashboardProvider.activeNGOs.toString(),
-                        label: 'NGOs',
-                        icon: Icons.business,
-                        color: Colors.purple,
-                      ),
-                      if (!isSmall) _buildStatItem(
-                        value: dashboardProvider.totalSponsors.toString(),
-                        label: 'Sponsors',
-                        icon: Icons.attach_money,
-                        color: Colors.teal,
-                      ),
-                      if (!isSmall) _buildStatItem(
-                        value: dashboardProvider.greenSpacesCount.toString(),
-                        label: 'Green Spaces',
-                        icon: Icons.park,
-                        color: Colors.green,
-                      ),
-                      if (!isSmall) _buildStatItem(
-                        value: dashboardProvider.totalPlants.toString(),
-                        label: 'Total Plants',
-                        icon: Icons.eco,
-                        color: Colors.lightGreen,
-                      ),
-                      if (!isSmall) _buildStatItem(
-                        value: dashboardProvider.adoptedPlants.toString(),
-                        label: 'Adopted Plants',
-                        icon: Icons.favorite,
-                        color: Colors.pink,
-                      ),
-                    ],
-                  );
-                },
+                ],
               ),
+              const SizedBox(height: 16),
+              if (dashboardProvider.isLoading)
+                const Center(child: CircularProgressIndicator())
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isSmall = constraints.maxWidth < 200;
+                    return GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: isSmall ? 2 : 3,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      childAspectRatio: isSmall ? 0.8 : 1.2,
+                      children: [
+                        _buildStatItem(
+                          value: dashboardProvider.totalUsers.toString(),
+                          label: 'Total Users',
+                          icon: Icons.people,
+                          color: DashboardColors.primaryBlue,
+                        ),
+                        _buildStatItem(
+                          value: dashboardProvider.totalReports.toString(),
+                          label: 'Reports',
+                          icon: Icons.assignment,
+                          color: DashboardColors.primaryOrange,
+                        ),
+                        _buildStatItem(
+                          value: dashboardProvider.totalEvents.toString(),
+                          label: 'Events',
+                          icon: Icons.event,
+                          color: DashboardColors.primaryGreen,
+                        ),
+                        if (!isSmall) _buildStatItem(
+                          value: dashboardProvider.activeNGOs.toString(),
+                          label: 'NGOs',
+                          icon: Icons.business,
+                          color: DashboardColors.primaryPurple,
+                        ),
+                        if (!isSmall) _buildStatItem(
+                          value: dashboardProvider.totalSponsors.toString(),
+                          label: 'Sponsors',
+                          icon: Icons.attach_money,
+                          color: DashboardColors.primaryTeal,
+                        ),
+                        if (!isSmall) _buildStatItem(
+                          value: dashboardProvider.greenSpacesCount.toString(),
+                          label: 'Green Spaces',
+                          icon: Icons.park,
+                          color: DashboardColors.primaryGreen,
+                        ),
+                        if (!isSmall) _buildStatItem(
+                          value: dashboardProvider.totalPlants.toString(),
+                          label: 'Total Plants',
+                          icon: Icons.eco,
+                          color: DashboardColors.safeGreen(300),
+                        ),
+                        if (!isSmall) _buildStatItem(
+                          value: dashboardProvider.adoptedPlants.toString(),
+                          label: 'Adopted Plants',
+                          icon: Icons.favorite,
+                          color: DashboardColors.primaryPurple,
+                        ),
+                      ],
+                    );
+                  },
+                ),
           ],
         ),
       ),
@@ -538,7 +539,7 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
           children: [
             Row(
               children: [
-                Icon(Icons.people_alt, color: Colors.red[700]),
+                Icon(Icons.people_alt, color: DashboardColors.safeRed(700)),
                 const SizedBox(width: 8),
                 Text(
                   'User Management',
@@ -557,19 +558,19 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
                   _buildUserManagementItem(
                     label: 'Pending Verifications',
                     value: dashboardProvider.pendingVerifications.toString(),
-                    color: Colors.orange,
+                    color: DashboardColors.primaryOrange,
                     onTap: () => _showPendingVerifications(context, dashboardProvider),
                   ),
                   _buildUserManagementItem(
                     label: 'Reported Users',
                     value: dashboardProvider.reportedUsers.toString(),
-                    color: Colors.red,
+                    color: DashboardColors.primaryRed,
                     onTap: () => _showReportedUsers(context, dashboardProvider),
                   ),
                   _buildUserManagementItem(
                     label: 'New Registrations (24h)',
                     value: dashboardProvider.newRegistrations.toString(),
-                    color: Colors.blue,
+                    color: DashboardColors.primaryBlue,
                     onTap: () => _showRecentRegistrations(context, dashboardProvider),
                   ),
                 ],
@@ -590,7 +591,7 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
           children: [
             Row(
               children: [
-                Icon(Icons.security, color: Colors.red[700]),
+                Icon(Icons.security, color: DashboardColors.safeRed(700)),
                 const SizedBox(width: 8),
                 Text(
                   'Content Moderation',
@@ -609,13 +610,13 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
                   _buildModerationItem(
                     label: 'Pending Reports',
                     value: dashboardProvider.pendingReports.toString(),
-                    color: Colors.orange,
+                    color: DashboardColors.primaryOrange,
                     onTap: () => _showPendingReports(context, dashboardProvider),
                   ),
                   _buildModerationItem(
                     label: 'Flagged Content',
                     value: dashboardProvider.flaggedContent.toString(),
-                    color: Colors.red,
+                    color: DashboardColors.primaryRed,
                     onTap: () => _showFlaggedContent(context, dashboardProvider),
                   ),
                   _buildModerationItem(
@@ -753,42 +754,42 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
                       icon: Icons.verified_user,
                       label: 'User Verification',
                       onPressed: () => _showUserVerification(context),
-                      color: Colors.blue,
+                      color: DashboardColors.primaryBlue,
                       isSmall: isSmall,
                     ),
                     _buildAdminActionButton(
                       icon: Icons.report_problem,
                       label: 'Content Moderation',
                       onPressed: () => _showContentModeration(context),
-                      color: Colors.orange,
+                      color: DashboardColors.primaryOrange,
                       isSmall: isSmall,
                     ),
                     _buildAdminActionButton(
                       icon: Icons.settings,
                       label: 'System Settings',
                       onPressed: () => _showSystemSettings(context),
-                      color: Colors.green,
+                      color: DashboardColors.primaryGreen,
                       isSmall: isSmall,
                     ),
                     _buildAdminActionButton(
                       icon: Icons.backup,
                       label: 'Database Backup',
                       onPressed: () => _performBackup(context),
-                      color: Colors.purple,
+                      color: DashboardColors.primaryPurple,
                       isSmall: isSmall,
                     ),
                     if (!isSmall) _buildAdminActionButton(
                       icon: Icons.analytics,
                       label: 'Platform Analytics',
                       onPressed: () => _showPlatformAnalytics(context),
-                      color: Colors.teal,
+                      color: DashboardColors.primaryTeal,
                       isSmall: isSmall,
                     ),
                     if (!isSmall) _buildAdminActionButton(
                       icon: Icons.security,
                       label: 'Security Audit',
                       onPressed: () => _runSecurityAudit(context),
-                      color: Colors.red,
+                      color: DashboardColors.primaryRed,
                       isSmall: isSmall,
                     ),
                   ],
@@ -1062,17 +1063,17 @@ class _AdminDashboardHomeState extends State<AdminDashboardHome> {
   Color _getActivityColor(String type) {
     switch (type) {
       case 'user_registration':
-        return Colors.blue;
+        return DashboardColors.primaryBlue;
       case 'report_submission':
-        return Colors.orange;
+        return DashboardColors.primaryOrange;
       case 'event_creation':
-        return Colors.green;
+        return DashboardColors.primaryGreen;
       case 'system_alert':
-        return Colors.red;
+        return DashboardColors.primaryRed;
       case 'moderation_action':
-        return Colors.purple;
+        return DashboardColors.primaryPurple;
       default:
-        return Colors.grey;
+        return DashboardColors.primaryGrey;
     }
   }
 
@@ -1313,8 +1314,8 @@ class SystemManagementScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('System Management'),
-        backgroundColor: Colors.blue[700],
-        foregroundColor: Colors.white,
+        backgroundColor: DashboardColors.safeBlue(700),
+        foregroundColor: DashboardColors.primaryWhite,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -1360,12 +1361,12 @@ class SystemManagementScreen extends StatelessWidget {
                 mainAxisSpacing: 16,
                 childAspectRatio: 2.5,
                 children: [
-                  _buildMetricItem('Uptime', dashboardProvider.systemMetrics['uptime'] ?? 'N/A', Icons.timer, Colors.green),
-                  _buildMetricItem('Error Rate', dashboardProvider.systemMetrics['error_rate'] ?? 'N/A', Icons.error, Colors.orange),
-                  _buildMetricItem('Active Sessions', dashboardProvider.systemMetrics['active_sessions']?.toString() ?? 'N/A', Icons.people, Colors.blue),
-                  _buildMetricItem('Database Size', dashboardProvider.systemMetrics['database_size'] ?? 'N/A', Icons.storage, Colors.purple),
-                  _buildMetricItem('Cache Hit Rate', dashboardProvider.systemMetrics['cache_hit_rate'] ?? 'N/A', Icons.cached, Colors.teal),
-                  _buildMetricItem('Queue Length', dashboardProvider.systemMetrics['queue_length']?.toString() ?? 'N/A', Icons.queue, Colors.red),
+                  _buildMetricItem('Uptime', dashboardProvider.systemMetrics['uptime'] ?? 'N/A', Icons.timer, DashboardColors.primaryGreen),
+                  _buildMetricItem('Error Rate', dashboardProvider.systemMetrics['error_rate'] ?? 'N/A', Icons.error, DashboardColors.primaryOrange),
+                  _buildMetricItem('Active Sessions', dashboardProvider.systemMetrics['active_sessions']?.toString() ?? 'N/A', Icons.people, DashboardColors.primaryBlue),
+                  _buildMetricItem('Database Size', dashboardProvider.systemMetrics['database_size'] ?? 'N/A', Icons.storage, DashboardColors.primaryPurple),
+                  _buildMetricItem('Cache Hit Rate', dashboardProvider.systemMetrics['cache_hit_rate'] ?? 'N/A', Icons.cached, DashboardColors.primaryTeal),
+                  _buildMetricItem('Queue Length', dashboardProvider.systemMetrics['queue_length']?.toString() ?? 'N/A', Icons.queue, DashboardColors.primaryRed),
                 ],
               ),
           ],

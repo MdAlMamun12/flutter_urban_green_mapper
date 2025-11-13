@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:urban_green_mapper/core/utils/theme.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/ngo_dashboard_provider.dart';
 import 'package:urban_green_mapper/core/models/report_model.dart';
+import 'package:urban_green_mapper/features/dashboard/utils/dashboard_colors.dart';
 
 class ReportsManagementBottomSheet extends StatefulWidget {
   const ReportsManagementBottomSheet({super.key});
@@ -97,7 +98,7 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
                   label: Text(
                     status[0].toUpperCase() + status.substring(1),
                     style: TextStyle(
-                      color: _filterStatus == status ? Colors.white : _getStatusColor(status),
+                      color: _filterStatus == status ? DashboardColors.primaryWhite : _getStatusColor(status),
                     ),
                   ),
                   selected: _filterStatus == status,
@@ -107,9 +108,9 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
                     });
                     _filterReports();
                   },
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: DashboardColors.safeGrey(200),
                   selectedColor: _getStatusColor(status),
-                  checkmarkColor: Colors.white,
+                  checkmarkColor: DashboardColors.primaryWhite,
                 ),
               );
             }).toList(),
@@ -196,13 +197,13 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.location_on, size: 12, color: Colors.grey[600]),
+                Icon(Icons.location_on, size: 12, color: DashboardColors.safeGrey(600)),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     report.displayLocation,
                     style: AppTheme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
+                      color: DashboardColors.safeGrey(600),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -213,20 +214,20 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
+                Icon(Icons.calendar_today, size: 12, color: DashboardColors.safeGrey(600)),
                 const SizedBox(width: 4),
                 Text(
                   _formatDate(report.createdAt),
-                  style: AppTheme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
+                    style: AppTheme.textTheme.bodySmall?.copyWith(
+                    color: DashboardColors.safeGrey(600),
                   ),
                 ),
                 const Spacer(),
                 if (report.userName != null && report.userName!.isNotEmpty)
                   Text(
                     'By: ${report.userName!}',
-                    style: AppTheme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
+                      style: AppTheme.textTheme.bodySmall?.copyWith(
+                      color: DashboardColors.safeGrey(600),
                     ),
                   ),
               ],
@@ -239,8 +240,8 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
                     child: OutlinedButton(
                       onPressed: () => _approveReport(report.reportId, provider),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.green,
-                        side: const BorderSide(color: Colors.green),
+                        foregroundColor: DashboardColors.primaryGreen,
+                          side: const BorderSide(color: Color(0xFF4CAF50)),
                       ),
                       child: const Text('Approve'),
                     ),
@@ -250,8 +251,8 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
                     child: OutlinedButton(
                       onPressed: () => _rejectReport(report.reportId, provider),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
+                        foregroundColor: DashboardColors.primaryRed,
+                          side: const BorderSide(color: Color(0xFFF44336)),
                       ),
                       child: const Text('Reject'),
                     ),
@@ -270,12 +271,12 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.assignment, size: 64, color: Colors.grey[400]),
+          Icon(Icons.assignment, size: 64, color: DashboardColors.safeGrey(400)),
           const SizedBox(height: 16),
           Text(
             'No reports found',
             style: AppTheme.textTheme.titleMedium?.copyWith(
-              color: Colors.grey[600],
+              color: DashboardColors.safeGrey(600),
             ),
           ),
           const SizedBox(height: 8),
@@ -284,7 +285,7 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
                 ? 'All pending reports have been reviewed'
                 : 'No ${_filterStatus} reports available',
             style: AppTheme.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[500],
+              color: DashboardColors.safeGrey(500),
             ),
             textAlign: TextAlign.center,
           ),
@@ -296,13 +297,13 @@ class _ReportsManagementBottomSheetState extends State<ReportsManagementBottomSh
   Color _getStatusColor(String status) {
     switch (status) {
       case 'approved':
-        return Colors.green;
+        return DashboardColors.primaryGreen;
       case 'pending':
-        return Colors.orange;
+        return DashboardColors.safeOrange(600);
       case 'rejected':
-        return Colors.red;
+        return DashboardColors.primaryRed;
       default:
-        return Colors.grey;
+        return DashboardColors.primaryGrey;
     }
   }
 

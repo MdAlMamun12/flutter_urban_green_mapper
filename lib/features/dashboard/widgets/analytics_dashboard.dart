@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:urban_green_mapper/core/utils/theme.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/ngo_dashboard_provider.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:urban_green_mapper/features/dashboard/utils/dashboard_colors.dart';
 
 class AnalyticsDashboard extends StatefulWidget {
   const AnalyticsDashboard({super.key});
@@ -13,6 +15,9 @@ class AnalyticsDashboard extends StatefulWidget {
 class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   String _selectedTimeRange = 'monthly';
   final List<String> _timeRanges = ['weekly', 'monthly', 'quarterly', 'yearly'];
+  // Interaction state for charts
+  int? _touchedEventPieIndex;
+  int? _touchedSponsorBarIndex;
 
   @override
   void initState() {
@@ -30,9 +35,14 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics Dashboard'),
-        backgroundColor: Colors.green[700],
-        foregroundColor: Colors.white,
+        backgroundColor: DashboardColors.safeGreen(700),
+        foregroundColor: DashboardColors.primaryWhite,
         actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => dashboardProvider.loadDashboardData(),
+          ),
           DropdownButton<String>(
             value: _selectedTimeRange,
             dropdownColor: Colors.white,
@@ -57,61 +67,52 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
       ),
       body: dashboardProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildSummaryCards(dashboardProvider),
-                  const SizedBox(height: 24),
-                  _buildEventAnalytics(dashboardProvider),
-                  const SizedBox(height: 24),
-                  _buildSponsorshipAnalytics(dashboardProvider),
-                  const SizedBox(height: 24),
-                  _buildCommunityAnalytics(dashboardProvider),
-                  const SizedBox(height: 24),
-                  _buildPerformanceMetrics(dashboardProvider),
-                ],
+          : RefreshIndicator(
+              onRefresh: () => dashboardProvider.loadDashboardData(),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    _buildSummaryCards(dashboardProvider),
+                    const SizedBox(height: 16),
+                    _buildEventAnalytics(dashboardProvider),
+                    const SizedBox(height: 16),
+                    _buildSponsorshipAnalytics(dashboardProvider),
+                    const SizedBox(height: 16),
+                    _buildCommunityAnalytics(dashboardProvider),
+                    const SizedBox(height: 16),
+                    _buildPerformanceMetrics(dashboardProvider),
+                  ],
+                ),
               ),
             ),
     );
   }
 
   Widget _buildSummaryCards(NGODashboardProvider provider) {
-    return GridView(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
-      ),
-      children: [
-        _buildSummaryCard(
-          'Total Events',
-          provider.events.length.toString(),
-          Icons.event,
-          Colors.blue,
-        ),
-        _buildSummaryCard(
-          'Active Sponsors',
-          provider.activeSponsors.toString(),
-          Icons.business,
-          Colors.green,
-        ),
-        _buildSummaryCard(
-          'Total Funding',
-          '\$${provider.totalSponsorshipAmount.toStringAsFixed(2)}',
-          Icons.attach_money,
-          Colors.orange,
-        ),
-        _buildSummaryCard(
-          'Community Members',
-          provider.communityMembers.toString(),
-          Icons.people,
-          Colors.purple,
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        int columns = 1;
+        if (width > 1000) columns = 4;
+        else if (width > 700) columns = 2;
+        final gap = 16.0;
+        final cardWidth = (width - ((columns - 1) * gap)) / columns;
+
+        final items = [
+          _buildSummaryCard('Total Events', provider.events.length.toString(), Icons.event, DashboardColors.primaryBlue),
+          _buildSummaryCard('Active Sponsors', provider.activeSponsors.toString(), Icons.business, DashboardColors.primaryGreen),
+          _buildSummaryCard('Total Funding', '\$${provider.totalSponsorshipAmount.toStringAsFixed(2)}', Icons.attach_money, DashboardColors.primaryOrange),
+          _buildSummaryCard('Community Members', provider.communityMembers.toString(), Icons.people, DashboardColors.primaryPurple),
+        ];
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: items.map((w) => SizedBox(width: cardWidth.clamp(220.0, 420.0), child: w)).toList(),
+        );
+      },
     );
   }
 
@@ -126,7 +127,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: _applyOpacity(color, 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 24),
@@ -143,7 +144,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
             Text(
               title,
               style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+                color: DashboardColors.safeGrey(600),
               ),
               textAlign: TextAlign.center,
             ),
@@ -155,10 +156,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
   Widget _buildEventAnalytics(NGODashboardProvider provider) {
     final eventStatusData = [
-      {'status': 'Upcoming', 'count': provider.events.where((e) => e.status == 'upcoming').length, 'color': Colors.blue},
-      {'status': 'Ongoing', 'count': provider.events.where((e) => e.status == 'ongoing').length, 'color': Colors.green},
-      {'status': 'Completed', 'count': provider.events.where((e) => e.status == 'completed').length, 'color': Colors.orange},
-      {'status': 'Cancelled', 'count': provider.events.where((e) => e.status == 'cancelled').length, 'color': Colors.red},
+      {'status': 'Upcoming', 'count': provider.events.where((e) => e.status == 'upcoming').length, 'color': DashboardColors.statusUpcoming},
+      {'status': 'Ongoing', 'count': provider.events.where((e) => e.status == 'ongoing').length, 'color': DashboardColors.statusOngoing},
+      {'status': 'Completed', 'count': provider.events.where((e) => e.status == 'completed').length, 'color': DashboardColors.statusCompleted},
+      {'status': 'Cancelled', 'count': provider.events.where((e) => e.status == 'cancelled').length, 'color': DashboardColors.statusCancelled},
     ];
 
     final totalEvents = provider.events.length;
@@ -190,31 +191,55 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildCustomPieChart(List<Map<String, dynamic>> data, int total) {
+    final sections = <PieChartSectionData>[];
+    for (var i = 0; i < data.length; i++) {
+      final item = data[i];
+      final value = (item['count'] as num).toDouble();
+      final isTouched = _touchedEventPieIndex == i;
+      sections.add(PieChartSectionData(
+        value: value,
+        color: item['color'] as Color,
+        radius: isTouched ? 54 : 46,
+        title: isTouched ? '${((value / (total == 0 ? 1 : total)) * 100).toStringAsFixed(0)}%' : '',
+        titleStyle: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+        showTitle: isTouched,
+      ));
+    }
+
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Outer ring for total
-        CustomPaint(
-          size: const Size(160, 160),
-          painter: _PieChartPainter(data, total),
+        SizedBox(
+          height: 180,
+          width: 180,
+          child: PieChart(
+            PieChartData(
+              sections: sections,
+              centerSpaceRadius: 44,
+              sectionsSpace: 4,
+              pieTouchData: PieTouchData(
+                touchCallback: (event, response) {
+                  if (response == null || response.touchedSection == null) {
+                    setState(() => _touchedEventPieIndex = null);
+                    return;
+                  }
+                  setState(() => _touchedEventPieIndex = response.touchedSection!.touchedSectionIndex);
+                },
+              ),
+            ),
+          ),
         ),
-        // Center text
+        // Center text (summary / tooltip)
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              total.toString(),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
+              _touchedEventPieIndex != null ? data[_touchedEventPieIndex!]['count'].toString() : total.toString(),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: DashboardColors.primaryGreen),
             ),
             Text(
-              'Total Events',
-              style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+              _touchedEventPieIndex != null ? data[_touchedEventPieIndex!]['status'] : 'Total Events',
+              style: AppTheme.textTheme.bodySmall?.copyWith(color: DashboardColors.safeGrey(600)),
             ),
           ],
         ),
@@ -251,10 +276,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
   Widget _buildSponsorshipAnalytics(NGODashboardProvider provider) {
     final tierData = [
-      {'tier': 'Bronze', 'count': provider.bronzeSponsors, 'color': Colors.brown},
-      {'tier': 'Silver', 'count': provider.silverSponsors, 'color': Colors.grey},
-      {'tier': 'Gold', 'count': provider.goldSponsors, 'color': Colors.amber},
-      {'tier': 'Platinum', 'count': provider.platinumSponsors, 'color': Colors.blue},
+      {'tier': 'Bronze', 'count': provider.bronzeSponsors, 'color': DashboardColors.tierBronze},
+      {'tier': 'Silver', 'count': provider.silverSponsors, 'color': DashboardColors.tierSilver},
+      {'tier': 'Gold', 'count': provider.goldSponsors, 'color': DashboardColors.tierGold},
+      {'tier': 'Platinum', 'count': provider.platinumSponsors, 'color': DashboardColors.tierPlatinum},
     ];
 
     final totalSponsors = provider.totalSponsors;
@@ -286,58 +311,68 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildCustomBarChart(List<Map<String, dynamic>> data, int total) {
-    final maxCount = data.fold(0, (max, item) => item['count'] > max ? item['count'] : max);
-    
+    final bars = <BarChartGroupData>[];
+    for (var i = 0; i < data.length; i++) {
+      final item = data[i];
+      final value = (item['count'] as num).toDouble();
+      bars.add(
+        BarChartGroupData(
+          x: i,
+          barRods: [BarChartRodData(toY: value, color: item['color'] as Color, width: 22, borderRadius: BorderRadius.circular(6))],
+        ),
+      );
+    }
+
     return Column(
       children: [
         SizedBox(
-          height: 120,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: data.map((item) {
-              final height = (item['count'] / (maxCount == 0 ? 1 : maxCount)) * 100;
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    width: 30,
-                    height: height,
-                    decoration: BoxDecoration(
-                      color: item['color'],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Center(
-                      child: Text(
-                        item['count'].toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item['tier'][0],
-                    style: AppTheme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
+          height: 200,
+          child: BarChart(
+            BarChartData(
+              barGroups: bars,
+              alignment: BarChartAlignment.spaceAround,
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, meta) {
+                  final idx = v.toInt();
+                  if (idx < 0 || idx >= data.length) return const SizedBox.shrink();
+                  return SideTitleWidget(axisSide: meta.axisSide, child: Text(data[idx]['tier'].toString(), style: AppTheme.textTheme.bodySmall));
+                }, reservedSize: 36)),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              gridData: FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              barTouchData: BarTouchData(
+                touchCallback: (event, response) {
+                  if (response == null || response.spot == null) {
+                    setState(() => _touchedSponsorBarIndex = null);
+                    return;
+                  }
+                  setState(() => _touchedSponsorBarIndex = response.spot!.touchedBarGroupIndex);
+                },
+                touchTooltipData: BarTouchTooltipData(
+                  tooltipBgColor: Colors.black87,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final tier = data[group.x.toInt()]['tier'];
+                    return BarTooltipItem('$tier\n${rod.toY.toInt()}', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
+                  },
+                ),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          'Total Sponsors: $total',
-          style: AppTheme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.green[700],
+        Text('Total Sponsors: $total', style: AppTheme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: DashboardColors.safeGreen(700))),
+        if (_touchedSponsorBarIndex != null && _touchedSponsorBarIndex! >= 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0),
+            child: Text(
+              '${data[_touchedSponsorBarIndex!]['tier']}: ${data[_touchedSponsorBarIndex!]['count']}',
+              style: AppTheme.textTheme.labelSmall?.copyWith(color: DashboardColors.safeGrey(700)),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -371,10 +406,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
   Widget _buildCommunityAnalytics(NGODashboardProvider provider) {
     final communityData = [
-      {'metric': 'Members', 'value': provider.communityMembers, 'color': Colors.green},
-      {'metric': 'Volunteer Hours', 'value': provider.volunteerHours, 'color': Colors.blue},
-      {'metric': 'Active Events', 'value': provider.activeEvents, 'color': Colors.orange},
-      {'metric': 'Completed Projects', 'value': provider.completedProjects, 'color': Colors.purple},
+      {'metric': 'Members', 'value': provider.communityMembers, 'color': DashboardColors.safeGreen(600)},
+      {'metric': 'Volunteer Hours', 'value': provider.volunteerHours, 'color': DashboardColors.safeBlue(600)},
+      {'metric': 'Active Events', 'value': provider.activeEvents, 'color': DashboardColors.safeOrange(600)},
+      {'metric': 'Completed Projects', 'value': provider.completedProjects, 'color': DashboardColors.safePurple(600)},
     ];
 
     return Card(
@@ -405,9 +440,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: item['color'].withOpacity(0.1),
+            color: _applyOpacity(item['color'] as Color, 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: item['color'].withOpacity(0.3)),
+            border: Border.all(color: _applyOpacity(item['color'] as Color, 0.3)),
           ),
           child: Row(
             children: [
@@ -478,21 +513,21 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
               'Budget Utilization',
               '${budgetUtilization.toStringAsFixed(1)}%',
               budgetUtilization / 100,
-              Colors.green,
+              DashboardColors.safeGreen(700),
             ),
             const SizedBox(height: 12),
             _buildProgressMetric(
               'Event Completion Rate',
               '${eventCompletionRate.toStringAsFixed(1)}%',
               eventCompletionRate / 100,
-              Colors.blue,
+              DashboardColors.safeBlue(700),
             ),
             const SizedBox(height: 12),
             _buildProgressMetric(
               'Sponsorship Success',
               '${provider.activeSponsors}/${provider.totalSponsors} Active',
               provider.totalSponsors > 0 ? provider.activeSponsors / provider.totalSponsors : 0,
-              Colors.orange,
+              DashboardColors.safeOrange(700),
             ),
           ],
         ),
@@ -525,7 +560,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         const SizedBox(height: 6),
         LinearProgressIndicator(
           value: progress,
-          backgroundColor: Colors.grey[200],
+          backgroundColor: DashboardColors.safeGrey(200),
           valueColor: AlwaysStoppedAnimation<Color>(color),
           minHeight: 8,
           borderRadius: BorderRadius.circular(4),
@@ -548,50 +583,10 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         return Icons.analytics;
     }
   }
-}
 
-class _PieChartPainter extends CustomPainter {
-  final List<Map<String, dynamic>> data;
-  final int total;
-
-  _PieChartPainter(this.data, this.total);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    
-    double startAngle = -90 * (3.141592653589793 / 180); // Start from top
-    
-    for (final item in data) {
-      final sweepAngle = (item['count'] / total) * 360 * (3.141592653589793 / 180);
-      
-      final paint = Paint()
-        ..color = item['color']
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 20
-        ..strokeCap = StrokeCap.round;
-      
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius - 10),
-        startAngle,
-        sweepAngle,
-        false,
-        paint,
-      );
-      
-      startAngle += sweepAngle;
-    }
-    
-    // Draw outer circle
-    final borderPaint = Paint()
-      ..color = Colors.grey[300]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    
-    canvas.drawCircle(center, radius - 10, borderPaint);
+  // Helper to apply opacity without using deprecated APIs
+  Color _applyOpacity(Color color, double opacity) {
+    final alpha = (opacity * 255).clamp(0, 255).toInt();
+    return color.withAlpha(alpha);
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

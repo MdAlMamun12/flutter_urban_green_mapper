@@ -4,6 +4,7 @@ import 'package:urban_green_mapper/core/utils/theme.dart';
 import 'package:urban_green_mapper/core/widgets/custom_button.dart';
 import 'package:urban_green_mapper/features/dashboard/providers/ngo_dashboard_provider.dart';
 import 'package:urban_green_mapper/core/models/event_model.dart';
+import 'package:urban_green_mapper/features/dashboard/utils/dashboard_colors.dart';
 
 class VolunteerInvitationScreen extends StatefulWidget {
   const VolunteerInvitationScreen({super.key});
@@ -36,8 +37,8 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Invite Volunteers'),
-        backgroundColor: Colors.green[700],
-        foregroundColor: Colors.white,
+        backgroundColor: DashboardColors.safeGreen(700),
+        foregroundColor: DashboardColors.primaryWhite,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -150,8 +151,8 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
             const SizedBox(height: 8),
             Text(
               'Add multiple email addresses to invite multiple volunteers',
-              style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+                style: AppTheme.textTheme.bodySmall?.copyWith(
+                color: DashboardColors.safeGrey(600),
               ),
             ),
           ],
@@ -165,14 +166,14 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          color: DashboardColors.safeGrey(50),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
           child: Text(
             'No emails added yet',
-            style: AppTheme.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[500],
+              style: AppTheme.textTheme.bodyMedium?.copyWith(
+              color: DashboardColors.safeGrey(500),
             ),
           ),
         ),
@@ -205,13 +206,13 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.green[50],
+        color: DashboardColors.safeGreen(50),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green[100]!),
+        border: Border.all(color: DashboardColors.safeGreen(100)),
       ),
       child: Row(
         children: [
-          Icon(Icons.email, size: 16, color: Colors.green[700]),
+          Icon(Icons.email, size: 16, color: DashboardColors.safeGreen(700)),
           const SizedBox(width: 8),
           Expanded(child: Text(email)),
           IconButton(
@@ -254,7 +255,7 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(DashboardColors.primaryWhite),
                 ),
               )
             : const Text('Send Invitations'),
@@ -270,7 +271,7 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter a valid email address'),
-          backgroundColor: Colors.red,
+          backgroundColor: DashboardColors.primaryRed,
         ),
       );
       return;
@@ -280,7 +281,7 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Email already added'),
-          backgroundColor: Colors.orange,
+          backgroundColor: DashboardColors.primaryOrange,
         ),
       );
       return;
@@ -311,7 +312,7 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Invitations sent to ${_emails.length} volunteers'),
-          backgroundColor: Colors.green,
+          backgroundColor: DashboardColors.primaryGreen,
         ),
       );
 
@@ -325,7 +326,7 @@ class _VolunteerInvitationScreenState extends State<VolunteerInvitationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to send invitations: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: DashboardColors.primaryRed,
         ),
       );
     }

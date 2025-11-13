@@ -5,6 +5,7 @@ import 'package:urban_green_mapper/core/models/event_model.dart';
 import 'package:urban_green_mapper/core/models/report_model.dart';
 import 'package:urban_green_mapper/core/models/sponsor_model.dart';
 import 'package:urban_green_mapper/core/models/sponsorship_model.dart';
+import 'package:urban_green_mapper/core/models/green_space_model.dart';
 import 'package:urban_green_mapper/core/services/database_service.dart';
 
 // Analytics View Enum for mobile navigation
@@ -38,6 +39,10 @@ class NGODashboardProvider with ChangeNotifier {
   DateTime _selectedAnalyticsPeriod = DateTime.now();
   AnalyticsView _currentAnalyticsView = AnalyticsView.overview;
 
+  // Engagement data
+  List<GreenSpaceModel> _topNearbyGreenSpaces = [];
+  int _unreadNotificationsCount = 0;
+
   // Getters
   List<EventModel> get events => _events;
   List<ReportModel> get pendingReports => _pendingReports;
@@ -48,6 +53,10 @@ class NGODashboardProvider with ChangeNotifier {
   List<Map<String, dynamic>> get sponsorAnalytics => _sponsorAnalytics;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  
+  // Engagement getters
+  List<GreenSpaceModel> get topNearbyGreenSpaces => _topNearbyGreenSpaces;
+  int get unreadNotificationsCount => _unreadNotificationsCount;
   DateTime get selectedAnalyticsPeriod => _selectedAnalyticsPeriod;
   AnalyticsView get currentAnalyticsView => _currentAnalyticsView;
 
@@ -1341,6 +1350,92 @@ class NGODashboardProvider with ChangeNotifier {
   /// Refresh all data
   Future<void> refreshData() async {
     await loadDashboardData();
+  }
+
+  /// Get top 3 nearby green spaces (sorted by health status and biodiversity)
+  Future<List<GreenSpaceModel>> getTopNearbyGreenSpaces({int limit = 3}) async {
+    try {
+      final spacesSnapshot = await _firestore
+          .collection(FirestoreConstants.greenSpacesCollection)
+          .get();
+
+      List<GreenSpaceModel> allSpaces = spacesSnapshot.docs.map((doc) {
+        return GreenSpaceModel.fromMap(doc.data());
+      }).toList();
+
+      // Sort by: healthy status first, then by biodiversity index, then by area
+      allSpaces.sort((a, b) {
+        // Health priority: healthy > restored > degraded > critical
+        final healthScoreA = _getHealthScore(a.status);
+        final healthScoreB = _getHealthScore(b.status);
+        if (healthScoreA != healthScoreB) return healthScoreB.compareTo(healthScoreA);
+
+        // Then by biodiversity
+        if (a.biodiversityIndex != b.biodiversityIndex) {
+          return b.biodiversityIndex.compareTo(a.biodiversityIndex);
+        }
+
+        // Then by area
+        return b.area.compareTo(a.area);
+      });
+
+      _topNearbyGreenSpaces = allSpaces.take(limit).toList();
+      notifyListeners();
+      return _topNearbyGreenSpaces;
+    } catch (e) {
+      print('❌ Error fetching top nearby green spaces: $e');
+      return [];
+    }
+  }
+
+  /// Helper to score health status for sorting
+  int _getHealthScore(String status) {
+    switch (status) {
+      case 'healthy':
+        return 4;
+      case 'restored':
+        return 3;
+      case 'degraded':
+        return 2;
+      case 'critical':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
+  /// Get unread notifications count for the current user
+  Future<int> getUnreadNotificationsCount() async {
+    try {
+      if (_currentNGOId == null) return 0;
+
+      final notificationsSnapshot = await _firestore
+          .collection('notifications')
+          .where('user_id', isEqualTo: _currentNGOId)
+          .where('is_read', isEqualTo: false)
+          .get();
+
+      _unreadNotificationsCount = notificationsSnapshot.size;
+      notifyListeners();
+      return _unreadNotificationsCount;
+    } catch (e) {
+      print('⚠️  Error fetching unread notifications count: $e');
+      return 0;
+    }
+  }
+
+  /// Stream of real-time unread notifications count (for live badge updates)
+  Stream<int> getUnreadNotificationsStream() {
+    if (_currentNGOId == null) {
+      return Stream.value(0);
+    }
+
+    return _firestore
+        .collection('notifications')
+        .where('user_id', isEqualTo: _currentNGOId)
+        .where('is_read', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.size);
   }
 
   /// Dispose provider
